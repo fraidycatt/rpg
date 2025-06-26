@@ -4,7 +4,6 @@ import { useState, useEffect, use, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import Link from 'next/link';
 
-// Popup Form Component: It now receives the chapter's specific participants
 function MarkMomentForm({ chapter, myCharacters, onSave, onCancel }: any) {
   const { token } = useAuth();
   const [characterOneId, setCharacterOneId] = useState('');
@@ -29,7 +28,7 @@ function MarkMomentForm({ chapter, myCharacters, onSave, onCancel }: any) {
     }
     setIsSubmitting(true);
     try {
-      // The API call to log the moment (this endpoint is already built and correct)
+      // The API call to log the moment is now targeting the correct, more specific endpoint.
       await fetch(`http://localhost:3001/api/v1/narratives/topics/${chapter.join_id}/log-moment`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`},
@@ -88,6 +87,7 @@ function MarkMomentForm({ chapter, myCharacters, onSave, onCancel }: any) {
   );
 }
 
+
 // Main Page Component
 export default function ManageNarrativePage(props: { params: { narrativeId: string } }) {
   const { narrativeId } = use(props.params);
@@ -99,6 +99,33 @@ export default function ManageNarrativePage(props: { params: { narrativeId: stri
   const [editingChapter, setEditingChapter] = useState<any | null>(null);
   const [selectedTopic, setSelectedTopic] = useState('');
   const [availableTopics, setAvailableTopics] = useState<any[]>([]); 
+
+  useEffect(() => {
+    const fetchAvailableTopics = async () => {
+      if (!token) return;
+      try {
+        // We call the correct backend endpoint you already built!
+        const res = await fetch(`http://localhost:3001/api/v1/story/users/me/unassigned-topics`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) throw new Error('Could not fetch available topics.');
+        const topics = await res.json();
+        
+        // We need to filter out topics that are already added to THIS narrative
+        const currentChapterTopicIds = chapters.map(c => c.flarum_topic_id.toString());
+        const unassignedTopics = topics.filter((topic: any) => !currentChapterTopicIds.includes(topic.id));
+
+        setAvailableTopics(unassignedTopics);
+      } catch (e) {
+        console.error("Failed to fetch available topics:", e);
+      }
+    };
+    
+    // We only run this fetch if we have the list of current chapters already
+    if (chapters.length > 0 || !isLoading) {
+       fetchAvailableTopics();
+    }
+  }, [token, chapters, isLoading]);
 
   const fetchPageData = useCallback(async () => {
     if (!token || !narrativeId) return;
