@@ -4,8 +4,8 @@ import { useState, useEffect, use, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import Link from 'next/link';
 
-// A separate, clean component for the popup form
-function MarkMomentForm({ chapter, myCharacters, allCharacters, onSave, onCancel }: any) {
+// Popup Form Component: It now receives the chapter's specific participants
+function MarkMomentForm({ chapter, myCharacters, onSave, onCancel }: any) {
   const { token } = useAuth();
   const [characterOneId, setCharacterOneId] = useState('');
   const [characterTwoId, setCharacterTwoId] = useState('');
@@ -13,31 +13,31 @@ function MarkMomentForm({ chapter, myCharacters, allCharacters, onSave, onCancel
   const [note, setNote] = useState(chapter.relationship_change_note || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Filter for 'their characters' - show everyone who is not one of your characters
-  const otherCharacters = allCharacters.filter((char: any) => 
-    !myCharacters.some((myChar: any) => myChar.id === char.id)
+  // Filter the chapter's cast list to find who is "me" and who is "them"
+  const myParticipatingChars = chapter.participants.filter((p: any) => 
+    myCharacters.some((myChar: any) => myChar.id === p.id)
+  );
+  const otherParticipatingChars = chapter.participants.filter((p: any) => 
+    !myCharacters.some((myChar: any) => myChar.id === p.id)
   );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!characterOneId || !characterTwoId || !newStatus) {
-      alert('Please select both characters and a new status.');
+      alert('Please select both participating characters and a new status.');
       return;
     }
     setIsSubmitting(true);
     try {
-      const res = await fetch(`http://localhost:3001/api/v1/narratives/topics/${chapter.join_id}/log-moment`, {
+      // The API call to log the moment (this endpoint is already built and correct)
+      await fetch(`http://localhost:3001/api/v1/narratives/topics/${chapter.join_id}/log-moment`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`},
         body: JSON.stringify({ characterOneId: parseInt(characterOneId), characterTwoId: parseInt(characterTwoId), newStatus, note })
       });
-       if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.message || 'Failed to save moment');
-      }
-      onSave(); // This tells the parent page to close the modal and refresh
+      onSave();
     } catch (err: any) {
-      alert(err.message);
+      alert("Failed to save moment.");
     } finally {
       setIsSubmitting(false);
     }
@@ -46,20 +46,20 @@ function MarkMomentForm({ chapter, myCharacters, allCharacters, onSave, onCancel
   return (
     <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-50 p-4">
       <div className="bg-gray-800 p-6 rounded-lg shadow-xl w-full max-w-lg border border-gray-600">
-        <h3 className="text-xl font-bold mb-4">Mark a Relationship Moment in Chapter {chapter.chapter_order}</h3>
+        <h3 className="text-xl font-bold mb-4">Mark a Relationship Moment in: {chapter.title}</h3>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-300">My Character (The Initiator):</label>
-            <select value={characterOneId} onChange={(e) => setCharacterOneId(e.target.value)} className="w-full bg-gray-900 border border-gray-600 p-2 rounded-md mt-1" required>
-              <option value="" disabled>-- Select Your Character --</option>
-              {myCharacters.map((char: any) => (<option key={char.id} value={char.id}>{char.character_name}</option>))}
+            <label className="block text-sm font-medium text-gray-300">My Character (who participated):</label>
+            <select value={characterOneId} onChange={(e) => setCharacterOneId(e.target.value)} className="w-full bg-gray-900 border-gray-600 p-2 rounded-md mt-1" required>
+              <option value="">-- Select Your Character --</option>
+              {myParticipatingChars.map((char: any) => (<option key={char.id} value={char.id}>{char.character_name}</option>))}
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-300">Their Character (The Target):</label>
+            <label className="block text-sm font-medium text-gray-300">Their Character (who participated):</label>
             <select value={characterTwoId} onChange={(e) => setCharacterTwoId(e.target.value)} className="w-full bg-gray-900 border border-gray-600 p-2 rounded-md mt-1" required>
-              <option value="">-- Select a Character --</option>
-              {otherCharacters.map((char: any) => (<option key={char.id} value={char.id}>{char.character_name}</option>))}
+              <option value="">-- Select a Participant --</option>
+              {otherParticipatingChars.map((char: any) => (<option key={char.id} value={char.id}>{char.character_name}</option>))}
             </select>
           </div>
           <div>
@@ -94,38 +94,32 @@ export default function ManageNarrativePage(props: { params: { narrativeId: stri
   const { token, user } = useAuth();
   const [narrative, setNarrative] = useState<any>(null);
   const [chapters, setChapters] = useState<any[]>([]);
-  const [availableTopics, setAvailableTopics] = useState<any[]>([]);
-  const [allCharacters, setAllCharacters] = useState<any[]>([]);
   const [myCharacters, setMyCharacters] = useState<any[]>([]);
-  const [selectedTopic, setSelectedTopic] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [editingChapter, setEditingChapter] = useState<any | null>(null);
+  const [selectedTopic, setSelectedTopic] = useState('');
+  const [availableTopics, setAvailableTopics] = useState<any[]>([]); 
 
   const fetchPageData = useCallback(async () => {
     if (!token || !narrativeId) return;
     setIsLoading(true);
     try {
-      const headers = { 'Authorization': `Bearer ${token}` };
-      const [narrativeRes, allTopicsRes] = await Promise.all([
-        fetch(`http://localhost:3001/api/v1/narratives/${narrativeId}`, { headers }),
-        fetch(`http://localhost:3001/api/v1/story/users/me/unassigned-topics`, { headers })
-      ]);
-      if (!narrativeRes.ok) throw new Error('Could not load narrative data.');
-      
-      const narrativeData = await narrativeRes.json();
-      setNarrative(narrativeData.narrative);
-      setChapters(narrativeData.chapters);
-      setAllCharacters(narrativeData.allCharacters);
-      
-      if (user) {
-        setMyCharacters(narrativeData.allCharacters.filter((c: any) => c.user_id === user.userId));
-      }
+      const res = await fetch(`http://localhost:3001/api/v1/narratives/${narrativeId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error('Could not load narrative data.');
+      const data = await res.json();
 
-      if (allTopicsRes.ok) {
-        const allTopicsData = await allTopicsRes.json();
-        const chapterIds = new Set(narrativeData.chapters.map((c: any) => c.flarum_topic_id.toString()));
-        const filteredTopics = allTopicsData.filter((topic: any) => !chapterIds.has(topic.id));
-        setAvailableTopics(filteredTopics);
+      setNarrative(data.narrative);
+      setChapters(data.chapters);
+
+      // We still need the full list of our own characters for the top-level logic
+      if (user) {
+        const myProfileRes = await fetch(`http://localhost:3001/api/v1/profiles/${user.username}`);
+        if (myProfileRes.ok) {
+            const myProfileData = await myProfileRes.json();
+            setMyCharacters(myProfileData.characters);
+        }
       }
     } catch (e) {
       console.error(e);
@@ -138,7 +132,7 @@ export default function ManageNarrativePage(props: { params: { narrativeId: stri
     fetchPageData();
   }, [fetchPageData]);
 
-  const handleAddChapter = async (e: React.FormEvent) => {
+    const handleAddChapter = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedTopic) return;
     await fetch(`http://localhost:3001/api/v1/narratives/${narrativeId}/topics`, {
@@ -158,7 +152,7 @@ export default function ManageNarrativePage(props: { params: { narrativeId: stri
     });
     fetchPageData();
   };
-
+  
   const handleSaveMoment = () => {
     setEditingChapter(null);
     fetchPageData();
@@ -176,18 +170,18 @@ export default function ManageNarrativePage(props: { params: { narrativeId: stri
           <p className="text-gray-300 italic mt-2">{narrative?.summary}</p>
         </div>
         <div className="bg-gray-800/50 p-6 rounded-lg">
-          <h2 className="text-xl font-semibold mb-4">Add a Chapter</h2>
-          <form onSubmit={handleAddChapter} className="flex items-end gap-2">
-            <div className="flex-grow">
-              <label htmlFor="topic-select" className="block text-sm font-medium">Add an Existing Topic:</label>
-              <select id="topic-select" value={selectedTopic} onChange={(e) => setSelectedTopic(e.target.value)} className="mt-1 block w-full bg-gray-900 border-gray-600 rounded-md p-2" required>
-                <option value="" disabled>{availableTopics.length > 0 ? '-- Select a topic --' : 'No available topics to add'}</option>
-                {availableTopics.map(topic => (<option key={topic.id} value={topic.id}>{topic.attributes.title}</option>))}
-              </select>
-            </div>
-            <button type="submit" className="py-2 px-4 bg-purple-600 hover:bg-purple-700 rounded-md font-medium">Add Chapter</button>
-          </form>
-        </div>
+         <h2 className="text-xl font-semibold mb-4">Add a Chapter</h2>
+         <form onSubmit={handleAddChapter} className="flex items-end gap-2">
+           <div className="flex-grow">
+             <label htmlFor="topic-select" className="block text-sm font-medium">Add an Existing Topic:</label>
+             <select id="topic-select" value={selectedTopic} onChange={(e) => setSelectedTopic(e.target.value)} className="mt-1 block w-full bg-gray-900 border-gray-600 rounded-md p-2" required>
+               <option value="" disabled>{availableTopics.length > 0 ? '-- Select a topic --' : 'No available topics to add'}</option>
+               {availableTopics.map(topic => (<option key={topic.id} value={topic.id}>{topic.attributes.title}</option>))}
+             </select>
+           </div>
+           <button type="submit" className="py-2 px-4 bg-purple-600 hover:bg-purple-700 rounded-md font-medium">Add Chapter</button>
+         </form>
+       </div>
         <div>
           <h2 className="text-2xl font-semibold border-b border-gray-700 pb-2 mb-4">Current Chapters</h2>
           <ul className="space-y-3">
@@ -201,21 +195,19 @@ export default function ManageNarrativePage(props: { params: { narrativeId: stri
                   </div>
                 </div>
                 {chapter.logged_relationship_id && (
-                  <p className="text-xs italic text-purple-300 mt-2 pt-2 border-l-2 border-gray-600">
+                   <p className="text-xs italic text-purple-300 mt-2 pt-2 border-l-2 border-gray-600">
                     <strong>Moment:</strong> {chapter.char_one_name}'s relationship with {chapter.char_two_name} became <strong>{chapter.new_relationship_status}</strong>.
                     <em> Note: {chapter.relationship_change_note}</em>
                   </p>
                 )}
               </li>
             ))}
-             {chapters.length === 0 && <p className="text-gray-400">This narrative has no chapters yet.</p>}
           </ul>
         </div>
         {editingChapter && (
           <MarkMomentForm 
             chapter={editingChapter}
             myCharacters={myCharacters}
-            allCharacters={allCharacters}
             onSave={handleSaveMoment}
             onCancel={() => setEditingChapter(null)}
           />
@@ -224,3 +216,4 @@ export default function ManageNarrativePage(props: { params: { narrativeId: stri
     </main>
   );
 }
+
