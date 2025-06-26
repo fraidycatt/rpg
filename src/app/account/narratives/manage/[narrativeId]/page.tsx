@@ -185,6 +185,25 @@ export default function ManageNarrativePage(props: { params: { narrativeId: stri
     fetchPageData();
   };
 
+  const handleRemoveMoment = async (joinId: number) => {
+        if (!confirm('Are you sure you want to remove this logged moment? This cannot be undone.')) return;
+        
+        try {
+            const res = await fetch(`http://localhost:3001/api/v1/narratives/topics/${joinId}/log-moment`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (!res.ok) throw new Error('Failed to remove moment.');
+
+            // Refresh the page data to show the change
+            fetchPageData();
+
+        } catch (err: any) {
+            alert(err.message);
+        }
+    };
+
   if (isLoading) return <p className="p-24 text-white">Loading Narrative Editor...</p>;
   if (!narrative) return <p className="p-24 text-white">Narrative not found.</p>;
 
@@ -231,6 +250,10 @@ export default function ManageNarrativePage(props: { params: { narrativeId: stri
                             <strong>Reason:</strong> {chapter.relationship_change_note}
                         </p>
                     )}
+                    <div className="flex-shrink-0 ml-4 space-x-2">
+                            <button onClick={() => setEditingChapter(chapter)} className="text-xs font-sans not-italic bg-blue-600/50 hover:bg-blue-600 py-1 px-2 rounded">Edit</button>
+                            <button onClick={() => handleRemoveMoment(chapter.join_id)} className="text-xs font-sans not-italic bg-red-600/50 hover:bg-red-600 py-1 px-2 rounded">Remove</button>
+                        </div>
                   </div>
                 )}
               </li>

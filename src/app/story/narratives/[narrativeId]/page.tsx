@@ -45,6 +45,19 @@ export default async function NarrativeReaderPage({ params }: { params: { narrat
                   <span className="font-semibold">Chapter {chapter.chapter_order}: {chapter.title}</span>
                   <span className="text-xs text-gray-400">Read &rarr;</span>
                 </Link>
+
+                {chapter.logged_relationship_id && (
+                   <div className="text-sm italic text-purple-300 mt-3 pt-3 border-t border-gray-700/50">
+                    <p>
+                        <strong>Relationship Moment:</strong> {chapter.character_one_name} now sees {chapter.character_two_name} as <strong>{chapter.new_relationship_status}</strong>.
+                    </p>
+                    {chapter.relationship_change_note && (
+                        <p className="mt-1">
+                            <strong>Reason:</strong> {chapter.relationship_change_note}
+                        </p>
+                    )}
+                  </div>
+                )}
               </li>
             ))}
           </ul>
