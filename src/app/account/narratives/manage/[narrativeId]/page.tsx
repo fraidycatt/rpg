@@ -6,9 +6,9 @@ import Link from 'next/link';
 
 function MarkMomentForm({ chapter, myCharacters, onSave, onCancel }: any) {
   const { token } = useAuth();
-  const [characterOneId, setCharacterOneId] = useState('');
-  const [characterTwoId, setCharacterTwoId] = useState('');
-  const [newStatus, setNewStatus] = useState('');
+  const [characterOneId, setCharacterOneId] = useState(chapter?.character_one_id || '');
+  const [characterTwoId, setCharacterTwoId] = useState(chapter?.character_two_id || '');
+  const [newStatus, setNewStatus] = useState(chapter?.new_relationship_status || '');
   const [note, setNote] = useState(chapter.relationship_change_note || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
