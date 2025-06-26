@@ -221,11 +221,17 @@ export default function ManageNarrativePage(props: { params: { narrativeId: stri
                     <button onClick={() => handleRemoveChapter(chapter.join_id)} className="text-xs bg-red-600 hover:bg-red-700 py-1 px-3 rounded">Unlink Chapter</button>
                   </div>
                 </div>
-                {chapter.logged_relationship_id && (
-                   <p className="text-xs italic text-purple-300 mt-2 pt-2 border-l-2 border-gray-600">
-                    <strong>Moment:</strong> {chapter.char_one_name}'s relationship with {chapter.char_two_name} became <strong>{chapter.new_relationship_status}</strong>.
-                    <em> Note: {chapter.relationship_change_note}</em>
-                  </p>
+                 {chapter.logged_relationship_id && (
+                   <div className="text-sm italic text-purple-300 mt-3 pt-3 border-t border-gray-700">
+                    <p>
+                        <strong>Relationship Moment:</strong> {chapter.character_one_name} sees {chapter.character_two_name} as <strong>{chapter.new_relationship_status}</strong>.
+                    </p>
+                    {chapter.relationship_change_note && (
+                        <p className="mt-1">
+                            <strong>Reason:</strong> {chapter.relationship_change_note}
+                        </p>
+                    )}
+                  </div>
                 )}
               </li>
             ))}
