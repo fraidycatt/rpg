@@ -14,6 +14,8 @@ export default function CreateTopicPage() {
   const [content, setContent] = useState('');
   const [myCharacters, setMyCharacters] = useState<any[]>([]);
   const [selectedCharacterId, setSelectedCharacterId] = useState('');
+  const [allBeats, setAllBeats] = useState<StoryBeat[]>([]);
+  const [selectedBeatIds, setSelectedBeatIds] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -32,11 +34,37 @@ export default function CreateTopicPage() {
     }
   }, [user]);
 
+    useEffect(() => {
+    const fetchBeats = async () => {
+        try {
+            const res = await fetch('http://localhost:3001/api/v1/discovery/beats');
+            if (!res.ok) throw new Error('Could not load story beats');
+            const data = await res.json();
+            setAllBeats(data);
+        } catch (err: any) {
+            setError(err.message);
+        }
+    }
+    fetchBeats();
+  }, []);
+
+    const handleBeatChange = (beatId: string) => {
+    // Create a new Set from the current state to ensure we trigger a re-render
+    const newSelection = new Set(selectedBeatIds);
+    if (newSelection.has(beatId)) {
+      newSelection.delete(beatId);
+    } else {
+      newSelection.add(beatId);
+    }
+    setSelectedBeatIds(newSelection);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setIsSubmitting(true);
     try {
+      // Step 1: Create the topic in Flarum (this part is the same)
       const res = await fetch('http://localhost:3001/api/v1/story/topics/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -44,9 +72,25 @@ export default function CreateTopicPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Failed to create topic.');
+      
+      const newTopicId = data.topicId;
+
+      // --- START: Step 2: Tag the new topic with our custom beats ---
+      // We only run this if beats were actually selected
+      if (selectedBeatIds.size > 0) {
+        await fetch('http://localhost:3001/api/v1/discovery/tag-topic', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            // Convert the Set of IDs to an array for the JSON payload
+            body: JSON.stringify({ discussionId: newTopicId, beatIds: Array.from(selectedBeatIds) }),
+        });
+        // We don't need to check the response here for now, but in a real app you might.
+      }
+      // --- END: Step 2 ---
 
       // If successful, redirect to the new topic page!
-      router.push(`/story/topics/${data.topicId}`);
+      router.push(`/story/topics/${newTopicId}`);
+
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -100,6 +144,26 @@ export default function CreateTopicPage() {
             required
           />
         </div>
+        <div>
+                <label className="block text-sm font-medium text-gray-300">Story Beats (Genres):</label>
+                <div className="mt-2 p-4 border border-gray-600 rounded-md grid grid-cols-2 sm:grid-cols-3 gap-4">
+                    {allBeats.map((beat) => (
+                        <div key={beat.id} className="flex items-center">
+                            <input
+                                id={`beat-${beat.id}`}
+                                type="checkbox"
+                                className="h-4 w-4 rounded border-gray-500 text-purple-600 focus:ring-purple-500"
+                                onChange={() => handleBeatChange(beat.id)}
+                                // The checkbox is checked if its ID is in our Set of selected IDs
+                                checked={selectedBeatIds.has(beat.id)}
+                            />
+                            <label htmlFor={`beat-${beat.id}`} className="ml-3 text-sm text-gray-200">
+                                {beat.name}
+                            </label>
+                        </div>
+                    ))}
+                </div>
+            </div>
           <button type="submit" 
           className="py-2 px-6 border border-transparent rounded-md shadow-sm font-medium text-white bg-purple-600 hover:bg-purple-700 disabled:bg-gray-500"
           disabled={isSubmitting}>
