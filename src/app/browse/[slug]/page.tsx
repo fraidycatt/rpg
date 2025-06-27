@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useState, useEffect, use } from 'react';
 
 // --- UPDATED INTERFACE ---
-// The data now has an 'id' and an 'attributes' object
+// The data structure now correctly reflects the Flarum API response.
 interface Topic {
   id: string;
   attributes: {
@@ -59,12 +59,12 @@ export default function BrowseByBeatPage(props: { params: { slug: string } }) {
           {topics.length > 0 ? (
             <ul className="space-y-2">
               {/* --- UPDATED JSX --- */}
-              {/* Note how we now access topic.attributes.title, etc. */}
+              {/* We now correctly use topic.id for the key and topic.attributes for the data. */}
               {topics.map((topic) => (
                 <li key={topic.id}>
                   <Link href={`/story/topics/${topic.id}`} className="block hover:bg-gray-700/50 p-4 rounded-md transition-colors">
                     <p className="text-lg font-semibold text-white">{topic.attributes.title}</p>
-                    <p className="text-xs text-gray-400">Replies: {topic.attributes.comment_count - 1}</p>
+                    <p className="text-xs text-gray-400">Replies: {topic.attributes.comment_count > 0 ? topic.attributes.comment_count - 1 : 0}</p>
                   </Link>
                 </li>
               ))}
