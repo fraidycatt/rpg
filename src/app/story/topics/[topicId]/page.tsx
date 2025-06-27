@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import Link from 'next/link';
 import ReplyForm from '@/components/ReplyForm';
 import EditPostForm from '@/components/EditPostForm'; // <-- 1. IMPORT THE NEW COMPONENT
+import EditBeatsForm from '@/components/EditBeatsForm';
 
 export default function TopicPage(props: { params: { topicId: string } }) {
   const { topicId } = use(props.params);
@@ -12,11 +13,11 @@ export default function TopicPage(props: { params: { topicId: string } }) {
 
   const [posts, setPosts] = useState<any[]>([]);
   const [authorMap, setAuthorMap] = useState<any>({});
+  const [topicAuthorId, setTopicAuthorId] = useState<string | null>(null);
   const [myCharacters, setMyCharacters] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-
-  // --- 2. ADD NEW STATE TO TRACK WHICH POST IS BEING EDITED ---
   const [editingPostId, setEditingPostId] = useState<string | null>(null);
+  const [isEditingBeats, setIsEditingBeats] = useState(false);
 
   const fetchPageData = async () => {
     if (!topicId) return;
@@ -25,6 +26,11 @@ export default function TopicPage(props: { params: { topicId: string } }) {
       if (!postsRes.ok) throw new Error('Failed to fetch posts');
       const postData = await postsRes.json();
       setPosts(postData.data);
+
+      const discussionData = postData.included?.find((item: any) => item.type === 'discussions' && item.id === topicId);
+      if (discussionData) {
+        setTopicAuthorId(discussionData.relationships.user.data.id);
+      }
 
       if (postData.data.length > 0) {
         const postIds = postData.data.map((p: any) => p.id).join(',');
@@ -58,12 +64,29 @@ export default function TopicPage(props: { params: { topicId: string } }) {
     fetchPageData();      // Re-fetch the data to show the updated post
   };
 
+  const canEditBeats = loggedInUser && loggedInUser.flarum_id?.toString() === topicAuthorId;
+
   if (isLoading) return <p className="p-24 text-white">Loading Topic...</p>;
 
   return (
     <main className="flex min-h-screen flex-col items-center p-8 sm:p-24 bg-gray-900 text-white">
       <div className="w-full max-w-4xl">
-        <h1 className="text-3xl font-bold mb-8 text-purple-400">Viewing Topic</h1>
+                <div className="flex justify-between items-center mb-8">
+            <h1 className="text-3xl font-bold text-purple-400">Viewing Topic</h1>
+            {canEditBeats && (
+                <button onClick={() => setIsEditingBeats(true)} className="text-sm bg-blue-600 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded">
+                    Edit Genres
+                </button>
+            )}
+        </div>
+
+        {isEditingBeats && (
+            <EditBeatsForm 
+                discussionId={topicId}
+                onSave={() => setIsEditingBeats(false)}
+                onCancel={() => setIsEditingBeats(false)}
+            />
+        )}
         <div className="space-y-6">
           {posts.map((post) => {
             const characterAuthor = authorMap[post.id];
