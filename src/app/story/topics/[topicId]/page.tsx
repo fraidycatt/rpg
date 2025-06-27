@@ -11,44 +11,36 @@ export default function TopicPage(props: { params: { topicId: string } }) {
   const { topicId } = use(props.params);
   const { user: loggedInUser, token } = useAuth();
 
+  // --- START: SIMPLIFIED STATE ---
   const [posts, setPosts] = useState<any[]>([]);
   const [authorMap, setAuthorMap] = useState<any>({});
-  const [myCharacters, setMyCharacters] = useState<any[]>([]);
+  const [myCharacters, setMyCharacters] = useState<any[]>([]); // For the reply form
   const [isLoading, setIsLoading] = useState(true);
   const [editingPostId, setEditingPostId] = useState<string | null>(null);
   const [isEditingBeats, setIsEditingBeats] = useState(false);
-  
-  // This is our new, simpler state variable for permissions
   const [canEditBeats, setCanEditBeats] = useState(false);
+  // --- END: SIMPLIFIED STATE ---
 
   const fetchPageData = async () => {
     if (!topicId) return;
+    setIsLoading(true); // Set loading at the start
+
     try {
-      // We no longer need to fetch discussion details here.
-      const postsRes = await fetch(`http://localhost:3001/api/v1/story/posts?topicId=${topicId}`);
-      if (!postsRes.ok) throw new Error('Failed to fetch posts');
-      const postData = await postsRes.json();
-      setPosts(postData.data);
-
-      // This is the new, dedicated permission check.
-      const permsRes = await fetch(`http://localhost:3001/api/v1/story/topics/${topicId}/can-edit`, {
-          headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      // --- START: SINGLE, ROBUST API CALL ---
+      const res = await fetch(`http://localhost:3001/api/v1/story/topic-page/${topicId}`, {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
       });
-      if(permsRes.ok) {
-        const permsData = await permsRes.json();
-        setCanEditBeats(permsData.canEdit);
-      }
 
-      // The rest of the data fetching is correct.
-      if (postData.data.length > 0) {
-        const postIds = postData.data.map((p: any) => p.id).join(',');
-        const authorsRes = await fetch(`http://localhost:3001/api/v1/story/posts/authors?postIds=${postIds}`);
-        if (authorsRes.ok) {
-          const authorsData = await authorsRes.json();
-          setAuthorMap(authorsData);
-        }
-      }
+      if (!res.ok) throw new Error('Failed to fetch topic data');
 
+      const data = await res.json();
+
+      setPosts(data.posts);
+      setAuthorMap(data.authorMap);
+      setCanEditBeats(data.canEditBeats);
+      // --- END: SINGLE, ROBUST API CALL ---
+
+      // We still need to fetch the user's characters for the reply form
       if (loggedInUser) {
         const myProfileRes = await fetch(`http://localhost:3001/api/v1/profiles/${loggedInUser.username}`);
         if (myProfileRes.ok) {
@@ -56,6 +48,7 @@ export default function TopicPage(props: { params: { topicId: string } }) {
             setMyCharacters(myProfileData.characters);
         }
       }
+
     } catch (e: any) {
       console.error(e);
     } finally {
@@ -63,13 +56,14 @@ export default function TopicPage(props: { params: { topicId: string } }) {
     }
   };
 
+  // This useEffect now correctly re-runs when the user logs in or out
   useEffect(() => {
     fetchPageData();
-  }, [topicId, token]); // We depend on the token to re-run the check when the user logs in.
+  }, [topicId, token]);
 
   const handleEditSuccess = () => {
     setEditingPostId(null);
-    fetchPageData();
+    fetchPageData(); // A single function to refresh all data
   };
 
   if (isLoading) return <p className="p-24 text-white">Loading Topic...</p>;
@@ -79,7 +73,7 @@ export default function TopicPage(props: { params: { topicId: string } }) {
       <div className="w-full max-w-4xl">
         <div className="flex justify-between items-center mb-8">
             <h1 className="text-3xl font-bold text-purple-400">Viewing Topic</h1>
-            {/* The button now correctly uses our new state variable */}
+            {/* This button will now work correctly */}
             {canEditBeats && (
                 <button onClick={() => setIsEditingBeats(true)} className="text-sm bg-blue-600 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded">
                     Edit Genres
@@ -87,12 +81,11 @@ export default function TopicPage(props: { params: { topicId: string } }) {
             )}
         </div>
 
+        {/* The rest of your JSX remains exactly the same and will now work */}
         {isEditingBeats && (
             <EditBeatsForm 
                 discussionId={topicId}
-                onSave={() => {
-                  setIsEditingBeats(false);
-                }}
+                onSave={() => setIsEditingBeats(false)}
                 onCancel={() => setIsEditingBeats(false)}
             />
         )}
@@ -118,7 +111,6 @@ export default function TopicPage(props: { params: { topicId: string } }) {
                     </button>
                   )}
                 </div>
-
                 {editingPostId === post.id ? (
                   <EditPostForm 
                     postId={post.id}
