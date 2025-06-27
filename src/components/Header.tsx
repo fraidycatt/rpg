@@ -19,6 +19,9 @@ export default function Header() {
           <Link href="/story" className="text-gray-300 hover:text-white transition-colors">
             Story
           </Link>
+          <Link href="/browse" className="text-gray-300 hover:text-white transition-colors">
+            Browse
+          </Link>
           <Link href="/wiki/The_Dominion" className="text-gray-300 hover:text-white transition-colors">
             World
           </Link>
