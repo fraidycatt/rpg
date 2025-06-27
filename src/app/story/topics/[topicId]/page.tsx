@@ -22,10 +22,10 @@ export default function TopicPage(props: { params: { topicId: string } }) {
   const fetchPageData = async () => {
     if (!topicId) return;
     try {
-      // We will now run our API calls in parallel for better performance
+      // We now make two clean API calls TO OUR OWN BACKEND
       const [postsRes, discussionRes] = await Promise.all([
         fetch(`http://localhost:3001/api/v1/story/posts?topicId=${topicId}`),
-        fetch(`https://events.maryeliston.com/api/discussions/${topicId}?include=user`) // Direct call to Flarum
+        fetch(`http://localhost:3001/api/v1/story/topics/${topicId}/details`) // <-- THIS IS THE CHANGED LINE
       ]);
 
       if (!postsRes.ok) throw new Error('Failed to fetch posts');
@@ -35,7 +35,10 @@ export default function TopicPage(props: { params: { topicId: string } }) {
       const discussionData = await discussionRes.json();
 
       setPosts(postData.data);
-      setTopicAuthorId(discussionData.data.relationships.user.data.id);
+      // This logic remains correct
+      if (discussionData.data && discussionData.data.relationships.user) {
+        setTopicAuthorId(discussionData.data.relationships.user.data.id);
+      }
 
       // This logic for fetching post authors is still correct
       if (postData.data.length > 0) {
