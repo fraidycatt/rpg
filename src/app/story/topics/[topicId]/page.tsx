@@ -22,32 +22,42 @@ export default function TopicPage(props: { params: { topicId: string } }) {
   const fetchPageData = async () => {
     if (!topicId) return;
     try {
-      const postsRes = await fetch(`http://localhost:3001/api/v1/story/posts?topicId=${topicId}`);
+      // We will now run our API calls in parallel for better performance
+      const [postsRes, discussionRes] = await Promise.all([
+        fetch(`http://localhost:3001/api/v1/story/posts?topicId=${topicId}`),
+        fetch(`https://events.maryeliston.com/api/discussions/${topicId}?include=user`) // Direct call to Flarum
+      ]);
+
       if (!postsRes.ok) throw new Error('Failed to fetch posts');
+      if (!discussionRes.ok) throw new Error('Failed to fetch topic details');
+
       const postData = await postsRes.json();
+      const discussionData = await discussionRes.json();
+
       setPosts(postData.data);
+      setTopicAuthorId(discussionData.data.relationships.user.data.id);
 
-      const discussionData = postData.included?.find((item: any) => item.type === 'discussions' && item.id === topicId);
-      if (discussionData) {
-        setTopicAuthorId(discussionData.relationships.user.data.id);
-      }
-
+      // This logic for fetching post authors is still correct
       if (postData.data.length > 0) {
         const postIds = postData.data.map((p: any) => p.id).join(',');
         const authorsRes = await fetch(`http://localhost:3001/api/v1/story/posts/authors?postIds=${postIds}`);
-        if (!authorsRes.ok) throw new Error('Failed to fetch post authors');
-        const authorsData = await authorsRes.json();
-        setAuthorMap(authorsData);
+        if (authorsRes.ok) {
+          const authorsData = await authorsRes.json();
+          setAuthorMap(authorsData);
+        }
       }
 
+      // This logic for fetching the user's characters is also correct
       if (loggedInUser) {
         const myProfileRes = await fetch(`http://localhost:3001/api/v1/profiles/${loggedInUser.username}`);
-        if (!myProfileRes.ok) throw new Error('Could not load your character list.');
-        const myProfileData = await myProfileRes.json();
-        setMyCharacters(myProfileData.characters);
+        if (myProfileRes.ok) {
+            const myProfileData = await myProfileRes.json();
+            setMyCharacters(myProfileData.characters);
+        }
       }
     } catch (e: any) {
       console.error(e);
+      // You should add proper error state handling here
     } finally {
       setIsLoading(false);
     }
