@@ -4,7 +4,7 @@ import { useState, useEffect, use } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import Link from 'next/link';
 import ReplyForm from '@/components/ReplyForm';
-import EditPostForm from '@/components/EditPostForm'; // <-- 1. IMPORT THE NEW COMPONENT
+import EditPostForm from '@/components/EditPostForm';
 import EditBeatsForm from '@/components/EditBeatsForm';
 
 export default function TopicPage(props: { params: { topicId: string } }) {
@@ -13,34 +13,33 @@ export default function TopicPage(props: { params: { topicId: string } }) {
 
   const [posts, setPosts] = useState<any[]>([]);
   const [authorMap, setAuthorMap] = useState<any>({});
-  const [topicAuthorId, setTopicAuthorId] = useState<string | null>(null);
   const [myCharacters, setMyCharacters] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [editingPostId, setEditingPostId] = useState<string | null>(null);
   const [isEditingBeats, setIsEditingBeats] = useState(false);
+  
+  // This is our new, simpler state variable for permissions
+  const [canEditBeats, setCanEditBeats] = useState(false);
 
   const fetchPageData = async () => {
     if (!topicId) return;
     try {
-      // We now make two clean API calls TO OUR OWN BACKEND
-      const [postsRes, discussionRes] = await Promise.all([
-        fetch(`http://localhost:3001/api/v1/story/posts?topicId=${topicId}`),
-        fetch(`http://localhost:3001/api/v1/story/topics/${topicId}/details`) // <-- THIS IS THE CHANGED LINE
-      ]);
-
+      // We no longer need to fetch discussion details here.
+      const postsRes = await fetch(`http://localhost:3001/api/v1/story/posts?topicId=${topicId}`);
       if (!postsRes.ok) throw new Error('Failed to fetch posts');
-      if (!discussionRes.ok) throw new Error('Failed to fetch topic details');
-
       const postData = await postsRes.json();
-      const discussionData = await discussionRes.json();
-
       setPosts(postData.data);
-      // This logic remains correct
-      if (discussionData.data && discussionData.data.relationships.user) {
-        setTopicAuthorId(discussionData.data.relationships.user.data.id);
+
+      // This is the new, dedicated permission check.
+      const permsRes = await fetch(`http://localhost:3001/api/v1/story/topics/${topicId}/can-edit`, {
+          headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      });
+      if(permsRes.ok) {
+        const permsData = await permsRes.json();
+        setCanEditBeats(permsData.canEdit);
       }
 
-      // This logic for fetching post authors is still correct
+      // The rest of the data fetching is correct.
       if (postData.data.length > 0) {
         const postIds = postData.data.map((p: any) => p.id).join(',');
         const authorsRes = await fetch(`http://localhost:3001/api/v1/story/posts/authors?postIds=${postIds}`);
@@ -50,7 +49,6 @@ export default function TopicPage(props: { params: { topicId: string } }) {
         }
       }
 
-      // This logic for fetching the user's characters is also correct
       if (loggedInUser) {
         const myProfileRes = await fetch(`http://localhost:3001/api/v1/profiles/${loggedInUser.username}`);
         if (myProfileRes.ok) {
@@ -60,32 +58,28 @@ export default function TopicPage(props: { params: { topicId: string } }) {
       }
     } catch (e: any) {
       console.error(e);
-      // You should add proper error state handling here
     } finally {
       setIsLoading(false);
     }
   };
-  
-  // This useEffect fetches the initial data
+
   useEffect(() => {
     fetchPageData();
-  }, [topicId, loggedInUser]);
+  }, [topicId, token]); // We depend on the token to re-run the check when the user logs in.
 
-  // --- 3. ADD HANDLER FUNCTIONS ---
   const handleEditSuccess = () => {
-    setEditingPostId(null); // Close the form
-    fetchPageData();      // Re-fetch the data to show the updated post
+    setEditingPostId(null);
+    fetchPageData();
   };
-
-  const canEditBeats = loggedInUser && loggedInUser.flarum_id?.toString() === topicAuthorId;
 
   if (isLoading) return <p className="p-24 text-white">Loading Topic...</p>;
 
   return (
     <main className="flex min-h-screen flex-col items-center p-8 sm:p-24 bg-gray-900 text-white">
       <div className="w-full max-w-4xl">
-                <div className="flex justify-between items-center mb-8">
+        <div className="flex justify-between items-center mb-8">
             <h1 className="text-3xl font-bold text-purple-400">Viewing Topic</h1>
+            {/* The button now correctly uses our new state variable */}
             {canEditBeats && (
                 <button onClick={() => setIsEditingBeats(true)} className="text-sm bg-blue-600 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded">
                     Edit Genres
@@ -96,15 +90,17 @@ export default function TopicPage(props: { params: { topicId: string } }) {
         {isEditingBeats && (
             <EditBeatsForm 
                 discussionId={topicId}
-                onSave={() => setIsEditingBeats(false)}
+                onSave={() => {
+                  setIsEditingBeats(false);
+                }}
                 onCancel={() => setIsEditingBeats(false)}
             />
         )}
+        
         <div className="space-y-6">
           {posts.map((post) => {
             const characterAuthor = authorMap[post.id];
-            // Determine if the current logged-in user can edit this post
-            const canEdit = loggedInUser && characterAuthor && characterAuthor.user_id === loggedInUser.userId;
+            const canEditPost = loggedInUser && characterAuthor && characterAuthor.user_id === loggedInUser.userId;
 
             return (
               <div key={post.id} className="bg-gray-800/50 p-6 rounded-lg shadow-lg border border-gray-700">
@@ -116,19 +112,17 @@ export default function TopicPage(props: { params: { topicId: string } }) {
                       </Link>
                     ) : ( 'System' )}
                   </div>
-                  {/* --- 4. ADD THE EDIT BUTTON --- */}
-                  {canEdit && editingPostId !== post.id && (
+                  {canEditPost && editingPostId !== post.id && (
                     <button onClick={() => setEditingPostId(post.id)} className="text-xs text-gray-400 hover:text-white">
                       Edit
                     </button>
                   )}
                 </div>
 
-                {/* --- 5. CONDITIONALLY RENDER THE POST OR THE FORM --- */}
                 {editingPostId === post.id ? (
                   <EditPostForm 
                     postId={post.id}
-                    initialContent={post.attributes.content} // Pass the raw content, not the HTML
+                    initialContent={post.attributes.content}
                     onSave={handleEditSuccess}
                     onCancel={() => setEditingPostId(null)}
                   />
@@ -155,12 +149,4 @@ export default function TopicPage(props: { params: { topicId: string } }) {
       </div>
     </main>
   );
-}
-
-// And finally, a small change to ReplyForm to accept the onReply prop
-// In src/components/ReplyForm.tsx
-interface ReplyFormProps {
-    topicId: string;
-    myCharacters: any[]; // Use a more specific type if you have one
-    onReply: () => void; // <-- ADD THIS LINE
 }

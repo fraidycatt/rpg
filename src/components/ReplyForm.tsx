@@ -13,6 +13,7 @@ interface Character {
 interface ReplyFormProps {
   topicId: string;
   myCharacters: Character[];
+  onReply: () => void; 
 }
 
 export default function ReplyForm({ topicId, myCharacters }: ReplyFormProps) {
