@@ -37,7 +37,7 @@ export default function TopicPage(props: { params: { topicId: string } }) {
       const data = await res.json();
 
       setPosts(data.posts);
-      setIsOocThread(postData.isOocThread);
+      setIsOocThread(data.isOocThread);
       setAuthorMap(data.authorMap);
       setCanEditBeats(data.canEditBeats);
       // --- END: SINGLE, ROBUST API CALL ---

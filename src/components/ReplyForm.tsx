@@ -26,10 +26,10 @@ export default function ReplyForm({ topicId, myCharacters, onReply, isOoc }: Rep
     if (isOoc) {
       setSelectedAuthor('user');
     } else if (myCharacters && myCharacters.length > 0) {
+      // Default to the first character for IC posts
       setSelectedAuthor(myCharacters[0].id.toString());
     }
   }, [isOoc, myCharacters]);
-
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,25 +41,22 @@ export default function ReplyForm({ topicId, myCharacters, onReply, isOoc }: Rep
     setIsSubmitting(true);
 
     try {
-      // Determine the characterId to send. It's null for OOC posts.
+      // This logic correctly determines if a characterId should be sent
       const characterId = !isOoc && selectedAuthor !== 'user' ? parseInt(selectedAuthor, 10) : null;
 
-      const res = await fetch('http://localhost:3001/api/v1/story/posts/reply', {
+      await fetch('http://localhost:3001/api/v1/story/posts/reply', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ content, topicId, characterId }),
       });
-
-      if (!res.ok) {
-          const data = await res.json();
-          throw new Error(data.message || 'Failed to post reply.');
-      }
       
+      // Reset form and refresh the topic page
       setContent('');
       onReply();
 
     } catch (err: any) {
-      setError(err.message);
+      const data = await err.response?.json();
+      setError(data?.message || 'Failed to post reply.');
     } finally {
       setIsSubmitting(false);
     }
