@@ -17,7 +17,6 @@ export default function TopicPage(props: { params: { topicId: string } }) {
   const [isLoading, setIsLoading] = useState(true);
   const [editingPostId, setEditingPostId] = useState<string | null>(null);
   const [isEditingBeats, setIsEditingBeats] = useState(false);
-  const [canEditBeats, setCanEditBeats] = useState(false);
   const [isOocThread, setIsOocThread] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,7 +36,6 @@ export default function TopicPage(props: { params: { topicId: string } }) {
 
       setPosts(data.posts);
       setAuthorMap(data.authorMap);
-      setCanEditBeats(data.canEditBeats);
       setIsOocThread(data.isOocThread);
 
       if (loggedInUser) {
@@ -73,20 +71,8 @@ export default function TopicPage(props: { params: { topicId: string } }) {
       <div className="w-full max-w-4xl">
         <div className="flex justify-between items-center mb-8">
             <h1 className="text-3xl font-bold text-purple-400">Viewing Topic</h1>
-            {canEditBeats && (
-                <button onClick={() => setIsEditingBeats(true)} className="text-sm bg-blue-600 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded">
-                    Edit Genres
-                </button>
-            )}
+            {/* The logic for this button will be added in the next step */}
         </div>
-
-        {isEditingBeats && (
-            <EditBeatsForm 
-                discussionId={topicId}
-                onSave={() => { setIsEditingBeats(false); fetchPageData(); }}
-                onCancel={() => setIsEditingBeats(false)}
-            />
-        )}
         
         <div className="space-y-6">
           {posts.map((post) => {
