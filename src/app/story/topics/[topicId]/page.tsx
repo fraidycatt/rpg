@@ -7,7 +7,7 @@ import ReplyForm from '@/components/ReplyForm';
 
 export default function TopicPage(props: { params: { topicId: string } }) {
   const { topicId } = use(props.params);
-  const { user: loggedInUser, token } = useAuth();
+  const { user: loggedInUser } = useAuth();
 
   const [posts, setPosts] = useState<any[]>([]);
   const [authorMap, setAuthorMap] = useState<any>({});
@@ -62,9 +62,7 @@ export default function TopicPage(props: { params: { topicId: string } }) {
                 <div className="font-bold text-white mb-4">
                   {author ? (
                     author.type === 'character' ? (
-                      <Link href={`/characters/${author.id}`} className="hover:text-purple-400">
-                        {author.name}
-                      </Link>
+                      <Link href={`/characters/${author.id}`} className="hover:text-purple-400">{author.name}</Link>
                     ) : (
                       <span className="italic">{author.name}</span>
                     )
