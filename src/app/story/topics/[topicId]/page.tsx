@@ -19,6 +19,7 @@ export default function TopicPage(props: { params: { topicId: string } }) {
   const [editingPostId, setEditingPostId] = useState<string | null>(null);
   const [isEditingBeats, setIsEditingBeats] = useState(false);
   const [canEditBeats, setCanEditBeats] = useState(false);
+  const [isOocThread, setIsOocThread] = useState(false);
   // --- END: SIMPLIFIED STATE ---
 
   const fetchPageData = async () => {
@@ -36,6 +37,7 @@ export default function TopicPage(props: { params: { topicId: string } }) {
       const data = await res.json();
 
       setPosts(data.posts);
+      setIsOocThread(postData.isOocThread);
       setAuthorMap(data.authorMap);
       setCanEditBeats(data.canEditBeats);
       // --- END: SINGLE, ROBUST API CALL ---
@@ -131,7 +133,7 @@ export default function TopicPage(props: { params: { topicId: string } }) {
 
         <div className="mt-8">
           {loggedInUser ? (
-            <ReplyForm topicId={topicId} myCharacters={myCharacters} onReply={fetchPageData} />
+          <ReplyForm topicId={topicId} myCharacters={myCharacters} onReply={fetchPageData} isOoc={isOocThread} />
           ) : (
             <p className="text-center text-lg p-8 bg-gray-800/50 rounded-lg">
               <Link href="/login" className="text-purple-400 font-bold hover:underline">Log in</Link> to post a reply.

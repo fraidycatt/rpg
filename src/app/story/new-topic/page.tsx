@@ -73,16 +73,35 @@ export default function CreateTopicPage() {
     }
   }, [user, isOocTopic]);
 
-  // Fetch all available story beats
+   // --- THIS IS THE CORRECTED USEEFFECT ---
+  // It now contains the logic to fetch the story beats from your API.
   useEffect(() => {
     const fetchBeats = async () => {
-        // ... (this useEffect is correct and does not need to change)
-    };
-    fetchBeats();
-  }, []);
+        try {
+            const res = await fetch('http://localhost:3001/api/v1/discovery/beats');
+            if (!res.ok) throw new Error('Could not load story beats');
+            const data = await res.json();
+            setAllBeats(data);
+        } catch (err: any) {
+            // Silently fail is okay here, the user just won't see checkboxes
+            console.error(err);
+        }
+    }
+    // Only fetch beats if it's a story topic
+    if (!isOocTopic) {
+        fetchBeats();
+    }
+  }, [isOocTopic]);
+  // --- END CORRECTED USEEFFECT ---
 
   const handleBeatChange = (beatId: string) => {
-    // ... (this handler is correct and does not need to change)
+    const newSelection = new Set(selectedBeatIds);
+    if (newSelection.has(beatId)) {
+      newSelection.delete(beatId);
+    } else {
+      newSelection.add(beatId);
+    }
+    setSelectedBeatIds(newSelection);
   };
 
   // --- MODIFIED SUBMIT HANDLER ---
