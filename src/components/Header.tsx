@@ -25,6 +25,9 @@ export default function Header() {
           <Link href="/wiki/The_Dominion" className="text-gray-300 hover:text-white transition-colors">
             World
           </Link>
+          <Link href="/guild" className="text-gray-300 hover:text-white transition-colors">
+            Guild
+          </Link>
           <Link href="/friends" className="text-gray-300 hover:text-white transition-colors">
             Friends
           </Link>
