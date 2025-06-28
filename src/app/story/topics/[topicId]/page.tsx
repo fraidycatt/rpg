@@ -7,7 +7,7 @@ import ReplyForm from '@/components/ReplyForm';
 
 export default function TopicPage(props: { params: { topicId: string } }) {
   const { topicId } = use(props.params);
-  const { user: loggedInUser } = useAuth();
+  const { user: loggedInUser, token } = useAuth();
 
   const [posts, setPosts] = useState<any[]>([]);
   const [authorMap, setAuthorMap] = useState<any>({});
@@ -21,57 +21,22 @@ export default function TopicPage(props: { params: { topicId: string } }) {
     setIsLoading(true);
     setError(null);
     try {
-      // Step 1: Get the basic post data and OOC status
-      const postsRes = await fetch(`http://localhost:3001/api/v1/story/posts?topicId=${topicId}`);
-      if (!postsRes.ok) throw new Error('Could not fetch posts.');
-      const postData = await postsRes.json();
-      setPosts(postData.posts);
-      setIsOocThread(postData.isOocThread);
-      
-      const postIds = postData.posts.map((p: any) => p.id);
-      if (postIds.length === 0) { setIsLoading(false); return; }
-
-      // Step 2: Get all character authors for these posts
-      const authorsRes = await fetch(`http://localhost:3001/api/v1/story/posts/authors?postIds=${postIds.join(',')}`);
-      const characterAuthorData = await authorsRes.json();
-      
-      let finalAuthorMap = { ...characterAuthorData };
-      let oocFlarumIds = new Set<string>();
-
-      // Step 3: Identify all posts that are OOC and collect their Flarum IDs
-      postData.posts.forEach((post: any) => {
-        if (!finalAuthorMap[post.id] && post.relationships?.user?.data) {
-          oocFlarumIds.add(post.relationships.user.data.id);
-        }
-      });
-      
-      // Step 4: Use our new, simple endpoint to get usernames for the OOC authors
-      if (oocFlarumIds.size > 0) {
-        const usersRes = await fetch(`http://localhost:3001/api/v1/users/from-flarum-ids`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ flarumIds: Array.from(oocFlarumIds) }),
-        });
-        const usernameMap = await usersRes.json(); // { "5": "storyteller" }
-
-        // Step 5: Add the OOC authors to our final map
-        postData.posts.forEach((post: any) => {
-            if (!finalAuthorMap[post.id] && post.relationships?.user?.data) {
-                const flarumId = post.relationships.user.data.id;
-                if (usernameMap[flarumId]) {
-                    finalAuthorMap[post.id] = { type: 'user', name: usernameMap[flarumId], id: flarumId };
-                }
-            }
-        });
+      const res = await fetch(`http://localhost:3001/api/v1/story/topic-page-data/${topicId}`);
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({ message: 'Failed to fetch topic data.' }));
+        throw new Error(errData.message);
       }
+      const data = await res.json();
 
-      setAuthorMap(finalAuthorMap);
+      setPosts(data.posts);
+      setAuthorMap(data.authorMap);
+      setIsOocThread(data.isOocThread);
 
-      // Step 6: Get characters for the reply form
       if (loggedInUser) {
         const myProfileRes = await fetch(`http://localhost:3001/api/v1/profiles/${loggedInUser.username}`);
         if (myProfileRes.ok) {
-            setMyCharacters((await myProfileRes.json()).characters);
+            const myProfileData = await myProfileRes.json();
+            setMyCharacters(myProfileData.characters);
         }
       }
     } catch (e: any) {
@@ -83,9 +48,10 @@ export default function TopicPage(props: { params: { topicId: string } }) {
 
   useEffect(() => {
     fetchPageData();
-  }, [topicId, loggedInUser]);
+  }, [topicId, token]);
 
   if (isLoading) return <p className="p-24 text-white">Loading Topic...</p>;
+  if (error) return <p className="p-24 text-red-500">{`Error: ${error}`}</p>;
 
   return (
     <main className="flex min-h-screen flex-col items-center p-8 sm:p-24 bg-gray-900 text-white">
@@ -99,7 +65,7 @@ export default function TopicPage(props: { params: { topicId: string } }) {
                 <p className="font-bold text-white mb-4">
                   {author ? (
                     author.type === 'character' ? (
-                      <Link href={`/characters/${author.id}`} className="hover:text-purple-400">{author.character_name}</Link>
+                      <Link href={`/characters/${author.id}`} className="hover:text-purple-400">{author.name}</Link>
                     ) : (
                       <span className="italic">{author.name}</span>
                     )
