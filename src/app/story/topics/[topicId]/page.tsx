@@ -14,69 +14,68 @@ export default function TopicPage(props: { params: { topicId: string } }) {
   const [myCharacters, setMyCharacters] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isOocThread, setIsOocThread] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchPageData = async () => {
     if (!topicId) return;
+    setIsLoading(true);
+    setError(null);
     try {
-      // Step 1: Fetch the basic post and OOC data.
+      // Step 1: Get the basic post data and OOC status
       const postsRes = await fetch(`http://localhost:3001/api/v1/story/posts?topicId=${topicId}`);
+      if (!postsRes.ok) throw new Error('Could not fetch posts.');
       const postData = await postsRes.json();
-      setPosts(postData.data);
+      setPosts(postData.posts);
       setIsOocThread(postData.isOocThread);
       
-      // Step 2: Fetch our custom character authors.
-      const postIds = postData.data.map((p: any) => p.id).join(',');
-      const authorsRes = await fetch(`http://localhost:3001/api/v1/story/posts/authors?postIds=${postIds}`);
+      const postIds = postData.posts.map((p: any) => p.id);
+      if (postIds.length === 0) { setIsLoading(false); return; }
+
+      // Step 2: Get all character authors for these posts
+      const authorsRes = await fetch(`http://localhost:3001/api/v1/story/posts/authors?postIds=${postIds.join(',')}`);
       const characterAuthorData = await authorsRes.json();
       
       let finalAuthorMap = { ...characterAuthorData };
-      let oocAuthorIdsToFetch = new Set();
+      let oocFlarumIds = new Set<string>();
 
-      // Step 3: Identify which OOC authors we need to look up.
-      postData.data.forEach((post: any) => {
+      // Step 3: Identify all posts that are OOC and collect their Flarum IDs
+      postData.posts.forEach((post: any) => {
         if (!finalAuthorMap[post.id] && post.relationships?.user?.data) {
-          oocAuthorIdsToFetch.add(post.relationships.user.data.id);
+          oocFlarumIds.add(post.relationships.user.data.id);
         }
       });
+      
+      // Step 4: Use our new, simple endpoint to get usernames for the OOC authors
+      if (oocFlarumIds.size > 0) {
+        const usersRes = await fetch(`http://localhost:3001/api/v1/users/from-flarum-ids`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ flarumIds: Array.from(oocFlarumIds) }),
+        });
+        const usernameMap = await usersRes.json(); // { "5": "storyteller" }
 
-      // Step 4: Fetch the usernames for the OOC authors from our new endpoint.
-      if (oocAuthorIdsToFetch.size > 0) {
-        const userLookups = Array.from(oocAuthorIdsToFetch).map(id =>
-          fetch(`http://localhost:3001/api/v1/users/by-flarum-id/${id}`).then(res => res.json())
-        );
-        const userDataResults = await Promise.all(userLookups);
-        
-        const flarumIdToUsernameMap = userDataResults.reduce((map: any, user: any, index: number) => {
-            const flarumId = Array.from(oocAuthorIdsToFetch)[index];
-            map[flarumId] = user.username;
-            return map;
-        }, {});
-
-        // Step 5: Add the OOC authors to our final map.
-        postData.data.forEach((post: any) => {
+        // Step 5: Add the OOC authors to our final map
+        postData.posts.forEach((post: any) => {
             if (!finalAuthorMap[post.id] && post.relationships?.user?.data) {
                 const flarumId = post.relationships.user.data.id;
-                finalAuthorMap[post.id] = {
-                    type: 'user',
-                    name: flarumIdToUsernameMap[flarumId] || 'A User',
-                    id: flarumId
-                };
+                if (usernameMap[flarumId]) {
+                    finalAuthorMap[post.id] = { type: 'user', name: usernameMap[flarumId], id: flarumId };
+                }
             }
         });
       }
 
       setAuthorMap(finalAuthorMap);
 
-      // Step 6: Fetch the logged-in user's characters for the reply form.
+      // Step 6: Get characters for the reply form
       if (loggedInUser) {
         const myProfileRes = await fetch(`http://localhost:3001/api/v1/profiles/${loggedInUser.username}`);
         if (myProfileRes.ok) {
-            const myProfileData = await myProfileRes.json();
-            setMyCharacters(myProfileData.characters);
+            setMyCharacters((await myProfileRes.json()).characters);
         }
       }
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      setError(e.message);
     } finally {
       setIsLoading(false);
     }
