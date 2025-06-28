@@ -11,24 +11,23 @@ export default function TopicPage(props: { params: { topicId: string } }) {
   const { topicId } = use(props.params);
   const { user: loggedInUser, token } = useAuth();
 
-  // --- START: SIMPLIFIED STATE ---
   const [posts, setPosts] = useState<any[]>([]);
   const [authorMap, setAuthorMap] = useState<any>({});
-  const [myCharacters, setMyCharacters] = useState<any[]>([]); // For the reply form
+  const [myCharacters, setMyCharacters] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [editingPostId, setEditingPostId] = useState<string | null>(null);
   const [isEditingBeats, setIsEditingBeats] = useState(false);
   const [canEditBeats, setCanEditBeats] = useState(false);
   const [isOocThread, setIsOocThread] = useState(false);
-  // --- END: SIMPLIFIED STATE ---
+  const [error, setError] = useState<string | null>(null);
 
   const fetchPageData = async () => {
     if (!topicId) return;
-    setIsLoading(true); // Set loading at the start
+    setIsLoading(true);
+    setError(null);
 
     try {
-      // --- START: SINGLE, ROBUST API CALL ---
-      const res = await fetch(`http://localhost:3001/api/v1/story/topic-page/${topicId}`, {
+      const res = await fetch(`http://localhost:3001/api/v1/story/topic-page-data/${topicId}`, {
         headers: token ? { 'Authorization': `Bearer ${token}` } : {}
       });
 
@@ -37,12 +36,10 @@ export default function TopicPage(props: { params: { topicId: string } }) {
       const data = await res.json();
 
       setPosts(data.posts);
-      setIsOocThread(data.isOocThread);
       setAuthorMap(data.authorMap);
       setCanEditBeats(data.canEditBeats);
-      // --- END: SINGLE, ROBUST API CALL ---
+      setIsOocThread(data.isOocThread);
 
-      // We still need to fetch the user's characters for the reply form
       if (loggedInUser) {
         const myProfileRes = await fetch(`http://localhost:3001/api/v1/profiles/${loggedInUser.username}`);
         if (myProfileRes.ok) {
@@ -52,30 +49,30 @@ export default function TopicPage(props: { params: { topicId: string } }) {
       }
 
     } catch (e: any) {
+      setError(e.message);
       console.error(e);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // This useEffect now correctly re-runs when the user logs in or out
   useEffect(() => {
     fetchPageData();
   }, [topicId, token]);
 
   const handleEditSuccess = () => {
     setEditingPostId(null);
-    fetchPageData(); // A single function to refresh all data
+    fetchPageData();
   };
 
   if (isLoading) return <p className="p-24 text-white">Loading Topic...</p>;
+  if (error) return <p className="p-24 text-red-500">{`Error: ${error}`}</p>;
 
   return (
     <main className="flex min-h-screen flex-col items-center p-8 sm:p-24 bg-gray-900 text-white">
       <div className="w-full max-w-4xl">
         <div className="flex justify-between items-center mb-8">
             <h1 className="text-3xl font-bold text-purple-400">Viewing Topic</h1>
-            {/* This button will now work correctly */}
             {canEditBeats && (
                 <button onClick={() => setIsEditingBeats(true)} className="text-sm bg-blue-600 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded">
                     Edit Genres
@@ -83,29 +80,30 @@ export default function TopicPage(props: { params: { topicId: string } }) {
             )}
         </div>
 
-        {/* The rest of your JSX remains exactly the same and will now work */}
         {isEditingBeats && (
             <EditBeatsForm 
                 discussionId={topicId}
-                onSave={() => setIsEditingBeats(false)}
+                onSave={() => { setIsEditingBeats(false); fetchPageData(); }}
                 onCancel={() => setIsEditingBeats(false)}
             />
         )}
         
         <div className="space-y-6">
           {posts.map((post) => {
-            const characterAuthor = authorMap[post.id];
-            const canEditPost = loggedInUser && characterAuthor && characterAuthor.user_id === loggedInUser.userId;
+            const author = authorMap[post.id];
+            const canEditPost = loggedInUser && author?.type === 'character' && author.user_id === loggedInUser.userId;
 
             return (
               <div key={post.id} className="bg-gray-800/50 p-6 rounded-lg shadow-lg border border-gray-700">
                 <div className="flex justify-between items-start">
                   <div className="font-bold text-white mb-4">
-                    {characterAuthor ? (
-                      <Link href={`/characters/${characterAuthor.id}`} className="hover:text-purple-400">
-                        {characterAuthor.character_name}
-                      </Link>
-                    ) : ( 'System' )}
+                    {author ? (
+                        author.type === 'character' ? (
+                            <Link href={`/characters/${author.id}`} className="hover:text-purple-400">{author.name}</Link>
+                        ) : (
+                            <span className="italic">{author.name}</span>
+                        )
+                    ) : 'System'}
                   </div>
                   {canEditPost && editingPostId !== post.id && (
                     <button onClick={() => setEditingPostId(post.id)} className="text-xs text-gray-400 hover:text-white">
@@ -133,7 +131,7 @@ export default function TopicPage(props: { params: { topicId: string } }) {
 
         <div className="mt-8">
           {loggedInUser ? (
-          <ReplyForm topicId={topicId} myCharacters={myCharacters} onReply={fetchPageData} isOoc={isOocThread} />
+            <ReplyForm topicId={topicId} myCharacters={myCharacters} onReply={fetchPageData} isOoc={isOocThread} />
           ) : (
             <p className="text-center text-lg p-8 bg-gray-800/50 rounded-lg">
               <Link href="/login" className="text-purple-400 font-bold hover:underline">Log in</Link> to post a reply.
