@@ -17,7 +17,7 @@ export default function TopicPage(props: { params: { topicId: string } }) {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    // This single, clean effect fetches all the pre-processed data from our smart backend.
+    // This effect fetches all the page data in one clean API call.
     useEffect(() => {
         const fetchPageData = async () => {
             if (!topicId) return;
@@ -29,10 +29,10 @@ export default function TopicPage(props: { params: { topicId: string } }) {
                 
                 const topicData = await topicRes.json();
 
-                // Set all state from the unified response.
+                // Set all of our state from the unified response.
                 setPosts(topicData.posts || []);
                 setAuthorMap(topicData.authorMap || {});
-                setIsOocThread(topicData.isOocThread || false);
+                setIsOocThread(topicData.isOocThread);
 
             } catch (e: any) {
                 setError(e.message);
@@ -44,7 +44,7 @@ export default function TopicPage(props: { params: { topicId: string } }) {
         fetchPageData();
     }, [topicId]);
 
-    // This separate effect fetches the user's own characters for the ReplyForm.
+    // This separate effect correctly fetches the user's characters for the reply form.
     useEffect(() => {
         if (loggedInUser && token) {
             const fetchMyCharacters = async () => {
@@ -81,13 +81,14 @@ export default function TopicPage(props: { params: { topicId: string } }) {
                                 <p className="font-bold text-white mb-4">
                                     {author ? (
                                         <Link 
+                                            // The link is different for characters vs. users.
                                             href={author.type === 'character' ? `/characters/${author.id}` : `/users/${author.name}`}
                                             className="hover:text-purple-400"
                                         >
                                             {author.name}
                                         </Link>
                                     ) : (
-                                        'System'
+                                        'System' // This should no longer appear.
                                     )}
                                 </p>
                                 <div

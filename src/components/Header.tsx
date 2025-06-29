@@ -43,7 +43,7 @@ export default function Header() {
               // If the 'user' object exists, show this:
               <div className="flex items-center space-x-4">
                 <span className="text-white">Welcome, {user.username}!</span>
-                <button 
+                 <button 
                   onClick={logout} 
                   className="bg-purple-600 hover:bg-purple-700 text-white py-1 px-3 rounded-md text-sm"
                 >
