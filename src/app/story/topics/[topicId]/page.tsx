@@ -12,8 +12,7 @@ export default function TopicPage(props: { params: { topicId: string } }) {
 
     const [posts, setPosts] = useState<any[]>([]);
     const [isOocThread, setIsOocThread] = useState(false);
-    const [characterAuthorMap, setCharacterAuthorMap] = useState<any>({});
-    const [flarumUserMap, setFlarumUserMap] = useState<Record<string, { username: string }>>({});
+    const [authorMap, setAuthorMap] = useState<any>({});
     const [myCharacters, setMyCharacters] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -24,27 +23,17 @@ export default function TopicPage(props: { params: { topicId: string } }) {
             setIsLoading(true);
             setError(null);
             try {
-                // This single fetch will now receive the complete data from your fixed backend.
-                const topicRes = await fetch(`/api/v1/story/posts?topicId=${topicId}`);
+                // We make ONE API call to our new, smarter backend endpoint
+                const topicRes = await fetch(`http://localhost:3001/api/v1/story/posts?topicId=${topicId}`);
                 if (!topicRes.ok) throw new Error('Failed to fetch topic data.');
+                
                 const topicData = await topicRes.json();
 
-                const fetchedPosts = topicData.posts || [];
-                setPosts(fetchedPosts);
+                // We set all our state from the clean data the backend provided
+                setPosts(topicData.posts || []);
+                setAuthorMap(topicData.authorMap || {});
                 setIsOocThread(topicData.isOocThread);
 
-                // This logic will now succeed because `topicData.included` will exist and contain users.
-                setFlarumUserMap(topicData.userMap || {});
-
-                // For IC threads, fetch character authors separately.
-                if (fetchedPosts.length > 0 && !topicData.isOocThread) {
-                    const postIds = fetchedPosts.map((p: any) => p.id).join(',');
-                    const authorsRes = await fetch(`http://localhost:3001/api/v1/story/posts/authors?postIds=${postIds}`);
-                    if (authorsRes.ok) {
-                        const authorsData = await authorsRes.json();
-                        setCharacterAuthorMap(authorsData);
-                    }
-                }
             } catch (e: any) {
                 setError(e.message);
                 console.error(e);
@@ -54,18 +43,21 @@ export default function TopicPage(props: { params: { topicId: string } }) {
         };
         fetchPageData();
     }, [topicId]);
-    console.log('flarumUserMap:', flarumUserMap);
 
     // This separate effect for the reply form is correct.
     useEffect(() => {
         if (loggedInUser && token) {
             const fetchMyCharacters = async () => {
-                const myProfileRes = await fetch(`http://localhost:3001/api/v1/profiles/${loggedInUser.username}`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (myProfileRes.ok) {
-                    const myProfileData = await myProfileRes.json();
-                    setMyCharacters(myProfileData.characters);
+                try {
+                    const myProfileRes = await fetch(`http://localhost:3001/api/v1/profiles/${loggedInUser.username}`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (myProfileRes.ok) {
+                        const myProfileData = await myProfileRes.json();
+                        setMyCharacters(myProfileData.characters);
+                    }
+                } catch (e) {
+                    console.error("Failed to fetch user's characters", e);
                 }
             };
             fetchMyCharacters();
@@ -82,33 +74,22 @@ export default function TopicPage(props: { params: { topicId: string } }) {
                 <div className="space-y-6">
                     {posts.length > 0 ? posts.map((post) => {
                         // This author logic will now finally work.
-                        const characterAuthor = characterAuthorMap[post.id];
-                        const flarumUserId = post.relationships?.user?.data?.id;
-                        const userAuthorName = flarumUserId ? flarumUserMap[flarumUserId] : null;
+                        const author = authorMap[post.id];
 
                         return (
                             <div key={post.id} className="bg-gray-800/50 p-6 rounded-lg shadow-lg border border-gray-700">
                                 <p className="font-bold text-white mb-4">
-  {isOocThread ? (
-    userAuthorName ? (
-      <Link href={`/users/${userAuthorName}`} className="hover:text-purple-400">
-        {userAuthorName}
-      </Link>
-    ) : (
-      'System'
-    )
-  ) : characterAuthor ? (
-    <Link href={`/characters/${characterAuthor.id}`} className="hover:text-purple-400">
-      {characterAuthor.character_name}
-    </Link>
-  ) : userAuthorName ? (
-    <Link href={`/users/${userAuthorName}`} className="hover:text-purple-400">
-      {userAuthorName}
-    </Link>
-  ) : (
-    'System'
-  )}
-</p>
+                                    {author ? (
+                                        <Link 
+                                            href={author.type === 'character' ? `/characters/${author.id}` : `/users/${author.name}`}
+                                            className="hover:text-purple-400"
+                                        >
+                                            {author.name}
+                                        </Link>
+                                    ) : (
+                                        'System' // Fallback for posts with no known author
+                                    )}
+                                </p>
                                 <div
                                     className="prose prose-invert lg:prose-xl"
                                     dangerouslySetInnerHTML={{ __html: post.attributes.contentHtml }}
