@@ -41,22 +41,31 @@ export default function ReplyForm({ topicId, myCharacters, onReply, isOoc }: Rep
     setIsSubmitting(true);
 
     try {
-      // This logic correctly determines if a characterId should be sent
       const characterId = !isOoc && selectedAuthor !== 'user' ? parseInt(selectedAuthor, 10) : null;
 
-      await fetch('http://localhost:3001/api/v1/story/posts/reply', {
+      const res = await fetch('http://localhost:3001/api/v1/story/posts/reply', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ content, topicId, characterId }),
       });
+
+      // --- THIS IS THE FIX ---
+      // We must first check if the response was successful.
+      if (!res.ok) {
+        const data = await res.json();
+        // If it failed, we throw an error to be caught by the catch block.
+        throw new Error(data.message || 'Failed to post reply.');
+      }
       
-      // Reset form and refresh the topic page
+      // Only if the submission was successful do we clear the form and refresh.
       setContent('');
-      onReply();
+      if (!isOoc) {
+        setSelectedAuthor(myCharacters[0]?.id.toString() || '');
+      }
+      onReply(); // This will now correctly re-fetch the data, including the new post.
 
     } catch (err: any) {
-      const data = await err.response?.json();
-      setError(data?.message || 'Failed to post reply.');
+      setError(err.message);
     } finally {
       setIsSubmitting(false);
     }
