@@ -21,22 +21,61 @@ export default function TopicPage(props: { params: { topicId: string } }) {
     setIsLoading(true);
     setError(null);
     try {
-      const res = await fetch(`http://localhost:3001/api/v1/story/topic-page-data/${topicId}`);
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({ message: 'Failed to fetch topic data.' }));
-        throw new Error(errData.message);
+      // Step 1: Get basic post data and OOC status
+      const postsRes = await fetch(`http://localhost:3001/api/v1/story/posts?topicId=${topicId}`);
+      if (!postsRes.ok) throw new Error('Could not fetch posts.');
+      const postData = await postsRes.json();
+      const allPosts = postData.posts || [];
+      
+      setPosts(allPosts);
+      setIsOocThread(postData.isOocThread);
+      
+      const postIds = allPosts.map((p: any) => p.id);
+      if (postIds.length === 0) {
+        setIsLoading(false);
+        return;
       }
-      const data = await res.json();
 
-      setPosts(data.posts);
-      setAuthorMap(data.authorMap);
-      setIsOocThread(data.isOocThread);
+      // Step 2: Get all character authors for these posts
+      const authorsRes = await fetch(`http://localhost:3001/api/v1/story/posts/authors?postIds=${postIds.join(',')}`);
+      const characterAuthorData = await authorsRes.json();
+      
+      let finalAuthorMap = { ...characterAuthorData };
+      let oocFlarumIds = new Set<string>();
+
+      // Step 3: Identify which OOC authors we need to look up
+      allPosts.forEach((post: any) => {
+        if (!finalAuthorMap[post.id] && post.relationships?.user?.data) {
+          oocFlarumIds.add(post.relationships.user.data.id);
+        }
+      });
+      
+      // Step 4: Use your working /users endpoint to get usernames for the OOC authors
+      if (oocFlarumIds.size > 0) {
+        const usersRes = await fetch(`http://localhost:3001/api/v1/users/from-flarum-ids`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ flarumIds: Array.from(oocFlarumIds) }),
+        });
+        const usernameMap = await usersRes.json();
+
+        // Step 5: Add the correct OOC authors to our final map
+        allPosts.forEach((post: any) => {
+            if (!finalAuthorMap[post.id] && post.relationships?.user?.data) {
+                const flarumId = post.relationships.user.data.id;
+                if (usernameMap[flarumId]) {
+                    finalAuthorMap[post.id] = { type: 'user', name: usernameMap[flarumId], id: flarumId };
+                }
+            }
+        });
+      }
+
+      setAuthorMap(finalAuthorMap);
 
       if (loggedInUser) {
         const myProfileRes = await fetch(`http://localhost:3001/api/v1/profiles/${loggedInUser.username}`);
         if (myProfileRes.ok) {
-            const myProfileData = await myProfileRes.json();
-            setMyCharacters(myProfileData.characters);
+            setMyCharacters((await myProfileRes.json()).characters);
         }
       }
     } catch (e: any) {
