@@ -17,19 +17,19 @@ export default function TopicPage(props: { params: { topicId: string } }) {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
+    // This effect fetches all the page data in one clean API call.
     useEffect(() => {
         const fetchPageData = async () => {
             if (!topicId) return;
             setIsLoading(true);
             setError(null);
             try {
-                // We make ONE API call to our new, smarter backend endpoint
                 const topicRes = await fetch(`http://localhost:3001/api/v1/story/posts?topicId=${topicId}`);
                 if (!topicRes.ok) throw new Error('Failed to fetch topic data.');
                 
                 const topicData = await topicRes.json();
 
-                // We set all our state from the clean data the backend provided
+                // Set all of our state from the unified response.
                 setPosts(topicData.posts || []);
                 setAuthorMap(topicData.authorMap || {});
                 setIsOocThread(topicData.isOocThread);
@@ -44,7 +44,7 @@ export default function TopicPage(props: { params: { topicId: string } }) {
         fetchPageData();
     }, [topicId]);
 
-    // This separate effect for the reply form is correct.
+    // This separate effect correctly fetches the user's characters for the reply form.
     useEffect(() => {
         if (loggedInUser && token) {
             const fetchMyCharacters = async () => {
@@ -73,7 +73,7 @@ export default function TopicPage(props: { params: { topicId: string } }) {
                 <h1 className="text-3xl font-bold mb-8 text-purple-400">Viewing Topic</h1>
                 <div className="space-y-6">
                     {posts.length > 0 ? posts.map((post) => {
-                        // This author logic will now finally work.
+                        // This logic is now simple because the backend did the hard work.
                         const author = authorMap[post.id];
 
                         return (
@@ -81,13 +81,14 @@ export default function TopicPage(props: { params: { topicId: string } }) {
                                 <p className="font-bold text-white mb-4">
                                     {author ? (
                                         <Link 
+                                            // The link is different for characters vs. users.
                                             href={author.type === 'character' ? `/characters/${author.id}` : `/users/${author.name}`}
                                             className="hover:text-purple-400"
                                         >
                                             {author.name}
                                         </Link>
                                     ) : (
-                                        'System' // Fallback for posts with no known author
+                                        'System' // This should no longer appear.
                                     )}
                                 </p>
                                 <div
