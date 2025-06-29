@@ -25,7 +25,7 @@ export default function TopicPage(props: { params: { topicId: string } }) {
             setError(null);
             try {
                 // This single fetch will now receive the complete data from your fixed backend.
-                const topicRes = await fetch(`http://localhost:3001/api/v1/story/posts?topicId=${topicId}`);
+                const topicRes = await fetch(`/api/v1/story/posts?topicId=${topicId}`);
                 if (!topicRes.ok) throw new Error('Failed to fetch topic data.');
                 const topicData = await topicRes.json();
 
@@ -34,12 +34,7 @@ export default function TopicPage(props: { params: { topicId: string } }) {
                 setIsOocThread(topicData.isOocThread);
 
                 // This logic will now succeed because `topicData.included` will exist and contain users.
-                const userMap: Record<string, { username: string }> = {};
-                (topicData.included || [])
-                    .forEach((user: any) => {
-                        userMap[user.id] = { username: user.attributes.username };
-                    });
-                setFlarumUserMap(userMap);
+                setFlarumUserMap(topicData.userMap || {});
 
                 // For IC threads, fetch character authors separately.
                 if (fetchedPosts.length > 0 && !topicData.isOocThread) {
@@ -59,6 +54,7 @@ export default function TopicPage(props: { params: { topicId: string } }) {
         };
         fetchPageData();
     }, [topicId]);
+    console.log('flarumUserMap:', flarumUserMap);
 
     // This separate effect for the reply form is correct.
     useEffect(() => {
@@ -88,19 +84,31 @@ export default function TopicPage(props: { params: { topicId: string } }) {
                         // This author logic will now finally work.
                         const characterAuthor = characterAuthorMap[post.id];
                         const flarumUserId = post.relationships?.user?.data?.id;
-                        const userAuthor = flarumUserId ? flarumUserMap[flarumUserId] : null;
+                        const userAuthorName = flarumUserId ? flarumUserMap[flarumUserId] : null;
 
                         return (
                             <div key={post.id} className="bg-gray-800/50 p-6 rounded-lg shadow-lg border border-gray-700">
                                 <p className="font-bold text-white mb-4">
-                                    {characterAuthor ? (
-                                        <Link href={`/characters/${characterAuthor.id}`} className="hover:text-purple-400">{characterAuthor.character_name}</Link>
-                                    ) : userAuthor ? (
-                                        <Link href={`/users/${userAuthor.username}`} className="hover:text-purple-400">{userAuthor.username}</Link>
-                                    ) : (
-                                        'System'
-                                    )}
-                                </p>
+  {isOocThread ? (
+    userAuthorName ? (
+      <Link href={`/users/${userAuthorName}`} className="hover:text-purple-400">
+        {userAuthorName}
+      </Link>
+    ) : (
+      'System'
+    )
+  ) : characterAuthor ? (
+    <Link href={`/characters/${characterAuthor.id}`} className="hover:text-purple-400">
+      {characterAuthor.character_name}
+    </Link>
+  ) : userAuthorName ? (
+    <Link href={`/users/${userAuthorName}`} className="hover:text-purple-400">
+      {userAuthorName}
+    </Link>
+  ) : (
+    'System'
+  )}
+</p>
                                 <div
                                     className="prose prose-invert lg:prose-xl"
                                     dangerouslySetInnerHTML={{ __html: post.attributes.contentHtml }}
