@@ -12,115 +12,113 @@ export default function TopicPage(props: { params: { topicId: string } }) {
   const [posts, setPosts] = useState<any[]>([]);
   const [authorMap, setAuthorMap] = useState<any>({});
   const [myCharacters, setMyCharacters] = useState<any[]>([]);
+  const [flarumUserMap, setFlarumUserMap] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
-  const [isOocThread, setIsOocThread] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchPageData = async () => {
-    if (!topicId) return;
-    setIsLoading(true);
-    setError(null);
-    try {
-      // Step 1: Get basic post data and OOC status
-      const postsRes = await fetch(`http://localhost:3001/api/v1/story/posts?topicId=${topicId}`);
-      if (!postsRes.ok) throw new Error('Could not fetch posts.');
-      const postData = await postsRes.json();
-      const allPosts = postData.posts || [];
-      
-      setPosts(allPosts);
-      setIsOocThread(postData.isOocThread);
-      
-      const postIds = allPosts.map((p: any) => p.id);
-      if (postIds.length === 0) {
-        setIsLoading(false);
-        return;
-      }
+  useEffect(() => {
+    const fetchTopicPosts = async () => {
+      if (!topicId) return;
 
-      // Step 2: Get all character authors for these posts
-      const authorsRes = await fetch(`http://localhost:3001/api/v1/story/posts/authors?postIds=${postIds.join(',')}`);
-      const characterAuthorData = await authorsRes.json();
-      
-      let finalAuthorMap = { ...characterAuthorData };
-      let oocFlarumIds = new Set<string>();
+      setIsLoading(true);
+      setError(null);
 
-      // Step 3: Identify which OOC authors we need to look up
-      allPosts.forEach((post: any) => {
-        if (!finalAuthorMap[post.id] && post.relationships?.user?.data) {
-          oocFlarumIds.add(post.relationships.user.data.id);
+      try {
+        const postsRes = await fetch(`http://localhost:3001/api/v1/story/posts?topicId=${topicId}`);
+        if (!postsRes.ok) {
+          throw new Error(`The server responded with an error: ${postsRes.status}`);
         }
-      });
-      
-      // Step 4: Use your working /users endpoint to get usernames for the OOC authors
-      if (oocFlarumIds.size > 0) {
-        const usersRes = await fetch(`http://localhost:3001/api/v1/users/from-flarum-ids`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ flarumIds: Array.from(oocFlarumIds) }),
-        });
-        const usernameMap = await usersRes.json();
 
-        // Step 5: Add the correct OOC authors to our final map
-        allPosts.forEach((post: any) => {
-            if (!finalAuthorMap[post.id] && post.relationships?.user?.data) {
-                const flarumId = post.relationships.user.data.id;
-                if (usernameMap[flarumId]) {
-                    finalAuthorMap[post.id] = { type: 'user', name: usernameMap[flarumId], id: flarumId };
-                }
+        const postData = await postsRes.json();
+        
+        // --- THE FIX ---
+        // We now correctly look for the 'posts' property from your API response,
+        // instead of the 'data' property that Flarum's default endpoint uses.
+        const fetchedPosts = postData.posts || [];
+        setPosts(fetchedPosts);
+
+        // Since the backend now handles author mapping, we can simplify this.
+        // We'll create the authorMap directly from the `author` object in each post.
+        const charAuthorMap: any = {};
+        const userAuthorMap: any = {};
+        
+        fetchedPosts.forEach(post => {
+          if (post.author) {
+            // Check if it's a character or a user and place them in the correct map
+            if (post.author.type === 'character') {
+              charAuthorMap[post.id] = post.author;
+            } else if (post.author.type === 'user') {
+              userAuthorMap[post.id] = post.author;
             }
+          }
         });
-      }
 
-      setAuthorMap(finalAuthorMap);
+        setAuthorMap(charAuthorMap);
+        setFlarumUserMap(userAuthorMap);
 
-      if (loggedInUser) {
-        const myProfileRes = await fetch(`http://localhost:3001/api/v1/profiles/${loggedInUser.username}`);
-        if (myProfileRes.ok) {
-            setMyCharacters((await myProfileRes.json()).characters);
-        }
+      } catch (e: any) {
+        console.error("Fetch failed:", e);
+        setError(`A network error occurred: ${e.message}`);
+      } finally {
+        setIsLoading(false);
       }
-    } catch (e: any) {
-      setError(e.message);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    };
+
+    fetchTopicPosts();
+  }, [topicId]);
 
   useEffect(() => {
-    fetchPageData();
-  }, [topicId, token]);
+    if (loggedInUser && token) {
+      const fetchMyCharacters = async () => {
+        try {
+          const myProfileRes = await fetch(`http://localhost:3001/api/v1/profiles/${loggedInUser.username}`, { headers: { 'Authorization': `Bearer ${token}` }});
+          if (myProfileRes.ok) {
+            const myProfileData = await myProfileRes.json();
+            setMyCharacters(myProfileData.characters);
+          }
+        } catch (e) { console.error("Failed to fetch user's characters:", e); }
+      };
+      fetchMyCharacters();
+    }
+  }, [loggedInUser, token]);
+
 
   if (isLoading) return <p className="p-24 text-white">Loading Topic...</p>;
-  if (error) return <p className="p-24 text-red-500">{`Error: ${error}`}</p>;
+  if (error) return <p className="p-24 text-red-400">Error: {error}</p>;
 
   return (
     <main className="flex min-h-screen flex-col items-center p-8 sm:p-24 bg-gray-900 text-white">
       <div className="w-full max-w-4xl">
         <h1 className="text-3xl font-bold mb-8 text-purple-400">Viewing Topic</h1>
         <div className="space-y-6">
-          {posts.map((post) => {
-            const author = authorMap[post.id];
+          {posts.length > 0 ? posts.map((post) => {
+            // We now look in two different maps depending on the post type
+            const characterAuthor = authorMap[post.id];
+            const userAuthor = flarumUserMap[post.id];
+
             return (
               <div key={post.id} className="bg-gray-800/50 p-6 rounded-lg shadow-lg border border-gray-700">
                 <p className="font-bold text-white mb-4">
-                  {author ? (
-                    author.type === 'character' ? (
-                      <Link href={`/characters/${author.id}`} className="hover:text-purple-400">{author.name}</Link>
-                    ) : (
-                      <span className="italic">{author.name}</span>
-                    )
-                  ) : 'System'}
+                  {characterAuthor ? (
+                    <Link href={`/characters/${characterAuthor.id}`} className="hover:text-purple-400">{characterAuthor.character_name}</Link>
+                  ) : userAuthor ? (
+                     <Link href={`/users/${userAuthor.username}`} className="hover:text-purple-400">{userAuthor.username}</Link>
+                  ) : ( 'System' )}
                 </p>
-                <div
-                  className="prose prose-invert lg:prose-xl"
-                  dangerouslySetInnerHTML={{ __html: post.attributes.contentHtml }}
-                />
+                <div className="prose prose-invert lg:prose-xl" dangerouslySetInnerHTML={{ __html: post.contentHtml }} />
               </div>
             );
-          })}
+          }) : (
+            <div className="bg-gray-800/50 p-6 rounded-lg text-center text-gray-400">
+                <h2 className="text-xl font-semibold text-white">This story is just beginning.</h2>
+                <p className="mt-2">There are no posts here yet. Be the first to write!</p>
+            </div>
+          )}
         </div>
+
         <div className="mt-8">
           {loggedInUser ? (
-            <ReplyForm topicId={topicId} myCharacters={myCharacters} onReply={fetchPageData} isOoc={isOocThread} />
+            <ReplyForm topicId={topicId} myCharacters={myCharacters} />
           ) : (
             <p className="text-center text-lg p-8 bg-gray-800/50 rounded-lg">
               <Link href="/login" className="text-purple-400 font-bold hover:underline">Log in</Link> to post a reply.
