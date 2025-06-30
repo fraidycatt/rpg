@@ -1,6 +1,8 @@
+// src/components/ReplyForm.tsx
+
 'use client';
 
-import { useState, useEffect } from 'react'; // <-- Add useEffect
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 
 interface Character { id: number; character_name: string; }
@@ -13,23 +15,25 @@ interface ReplyFormProps {
 }
 
 export default function ReplyForm({ topicId, myCharacters, onReply, isOoc }: ReplyFormProps) {
+    console.log("--- ReplyForm Rerendered ---"); 
   const { user, token } = useAuth();
-  
-  // The selectedAuthor can be a character ID or the string 'user' for OOC posts
   const [selectedAuthor, setSelectedAuthor] = useState('');
   const [content, setContent] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // --- NEW: useEffect to set the default author ---
+  // This effect correctly sets the default author
   useEffect(() => {
     if (isOoc) {
       setSelectedAuthor('user');
     } else if (myCharacters && myCharacters.length > 0) {
-      // Default to the first character for IC posts
       setSelectedAuthor(myCharacters[0].id.toString());
     }
   }, [isOoc, myCharacters]);
+  
+  // --- THIS IS THE FIX ---
+  // We'll set the placeholder text conditionally right here.
+  const placeholderText = isOoc ? "Write your reply..." : "Write your story...";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,27 +46,22 @@ export default function ReplyForm({ topicId, myCharacters, onReply, isOoc }: Rep
 
     try {
       const characterId = !isOoc && selectedAuthor !== 'user' ? parseInt(selectedAuthor, 10) : null;
-
       const res = await fetch('http://localhost:3001/api/v1/story/posts/reply', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ content, topicId, characterId }),
       });
 
-      // --- THIS IS THE FIX ---
-      // We must first check if the response was successful.
       if (!res.ok) {
         const data = await res.json();
-        // If it failed, we throw an error to be caught by the catch block.
         throw new Error(data.message || 'Failed to post reply.');
       }
       
-      // Only if the submission was successful do we clear the form and refresh.
       setContent('');
       if (!isOoc) {
         setSelectedAuthor(myCharacters[0]?.id.toString() || '');
       }
-      onReply(); // This will now correctly re-fetch the data, including the new post.
+      onReply(); 
 
     } catch (err: any) {
       setError(err.message);
@@ -77,7 +76,6 @@ export default function ReplyForm({ topicId, myCharacters, onReply, isOoc }: Rep
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label htmlFor="author-select" className="block text-sm font-medium text-gray-300">Post as:</label>
-          {/* Conditionally render the author selection */}
           {isOoc ? (
             <p className="text-white font-semibold mt-1 py-2">{user?.username} (You)</p>
           ) : (
@@ -96,7 +94,7 @@ export default function ReplyForm({ topicId, myCharacters, onReply, isOoc }: Rep
             value={content}
             onChange={(e) => setContent(e.target.value)}
             className="w-full h-32 p-2 bg-gray-900 border border-gray-600 rounded-md text-white"
-            placeholder="Write your story..."
+            placeholder={placeholderText} // --- AND USE IT HERE ---
             disabled={isSubmitting}
             required
           />

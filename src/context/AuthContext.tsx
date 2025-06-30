@@ -2,9 +2,9 @@
 
 'use client';
 
-import { createContext, useState, useEffect, useContext, ReactNode } from 'react';
+import { createContext, useState, useEffect, useContext, ReactNode, useMemo, useCallback } from 'react';
 import { jwtDecode } from 'jwt-decode';
-import { useRouter } from 'next/navigation';
+// import { useRouter } from 'next/navigation'; // <-- REMOVE THIS
 
 interface User {
   userId: number;
@@ -16,7 +16,7 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   authLoading: boolean;
-  login: (token: string) => void;
+  login: (token: string) => void; // The function signature is the same
   logout: () => void;
 }
 
@@ -26,7 +26,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const router = useRouter();
+  // const router = useRouter(); // <-- REMOVE THIS
 
   useEffect(() => {
     try {
@@ -38,41 +38,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     } catch (error) {
       console.error("Failed to decode token on initial load", error);
-      // If token is bad, clear it out
       localStorage.removeItem('jwt_token');
     } finally {
       setAuthLoading(false);
     }
   }, []);
 
-  const login = (newToken: string) => {
+  // FIX: The login function no longer handles routing. It only sets state.
+  const login = useCallback((newToken: string) => {
     try {
         const decodedUser: User = jwtDecode(newToken);
         localStorage.setItem('jwt_token', newToken);
         setUser(decodedUser);
         setToken(newToken);
-        // --- DIAGNOSTIC LOG ---
-        console.log("LOGIN SUCCESS: New token set in localStorage.");
-        router.push('/');
+        // router.push('/'); // <-- REMOVE THIS
     } catch (error) {
         console.error("Failed to process new token during login:", error);
     }
-  };
+  }, []); // No dependencies needed now
 
-  const logout = () => {
-    // --- THIS IS THE FIX ---
-    // This more aggressive logout ensures everything is cleared.
+  const logout = useCallback(() => {
     localStorage.removeItem('jwt_token');
     setToken(null);
     setUser(null);
-    // --- DIAGNOSTIC LOG ---
-    console.log("LOGOUT: Token cleared from localStorage.");
-    // We use a full page reload to ensure no old state remains.
     window.location.href = '/login';
-  };
+  }, []);
+
+  // This part remains the same, providing a stable context value.
+  const authContextValue = useMemo(() => ({
+    user,
+    token,
+    authLoading,
+    login,
+    logout
+  }), [user, token, authLoading, login, logout]);
 
   return (
-    <AuthContext.Provider value={{ user, token, authLoading, login, logout }}>
+    <AuthContext.Provider value={authContextValue}>
       {children}
     </AuthContext.Provider>
   );
