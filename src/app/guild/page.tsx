@@ -1,9 +1,11 @@
+// src/app/guild/page.tsx
+
 'use client';
 
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 
-// A generic type for our Flarum discussion objects
+// Interfaces remain the same
 interface Discussion {
   id: string;
   attributes: {
@@ -12,13 +14,10 @@ interface Discussion {
     createdAt: string;
   };
 }
-
-// New interface for the tag object
 interface Tag {
-    id: string;
+    id:string;
     attributes: {
         name: string;
-        // add other attributes if needed
     }
 }
 
@@ -45,7 +44,6 @@ export default function GuildPage() {
         const plottingData = await plottingRes.json();
         const recruitingData = await recruitingRes.json();
 
-        // Set the state with the new, richer data object
         setPlottingTag(plottingData.tag);
         setPlottingThreads(plottingData.threads);
         setRecruitingTag(recruitingData.tag);
@@ -64,9 +62,6 @@ export default function GuildPage() {
   if (isLoading) return <p className="p-24 text-white">Polishing the bulletin board...</p>;
   if (error) return <p className="p-24 text-red-500">Error: {error}</p>;
 
-  if (isLoading) return <p className="p-24 text-white">Polishing the bulletin board...</p>;
-  if (error) return <p className="p-24 text-red-500">Error: {error}</p>;
-
   return (
     <main className="flex min-h-screen flex-col items-center p-8 sm:p-12 bg-gray-900 text-white">
       <div className="w-full max-w-7xl">
@@ -77,7 +72,6 @@ export default function GuildPage() {
           <p className="text-lg text-gray-400 mt-2">Find your next story, or the companions to tell it with.</p>
         </div>
 
-        {/* Main Grid for the two columns */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
 
           {/* Column 1: Fireside Plots */}
@@ -92,7 +86,8 @@ export default function GuildPage() {
             </div>
             <div className="space-y-4">
               {plottingThreads.length > 0 ? plottingThreads.map(thread => (
-                <Link key={thread.id} href={`/story/topics/${thread.id}`} className="block p-4 bg-gray-800/60 rounded-md hover:bg-gray-700/80 transition-colors">
+                // --- FIX: Add prefetch={false} ---
+                <Link key={thread.id} href={`/story/topics/${thread.id}`} prefetch={false} className="block p-4 bg-gray-800/60 rounded-md hover:bg-gray-700/80 transition-colors">
                   <p className="font-semibold text-white">{thread.attributes.title}</p>
                   <p className="text-xs text-gray-400 mt-1">
                     {thread.attributes.commentCount - 1} Replies
@@ -102,7 +97,6 @@ export default function GuildPage() {
                 <p className="text-gray-500 text-center py-4">No new plots are being discussed.</p>
               )}
             </div>
-            
           </div>
 
           {/* Column 2: Swords for Coin */}
@@ -117,7 +111,8 @@ export default function GuildPage() {
             </div>
             <div className="space-y-4">
               {recruitingThreads.length > 0 ? recruitingThreads.map(thread => (
-                <Link key={thread.id} href={`/story/topics/${thread.id}`} className="block p-4 bg-gray-800/60 rounded-md hover:bg-gray-700/80 transition-colors">
+                // --- FIX: Add prefetch={false} ---
+                <Link key={thread.id} href={`/story/topics/${thread.id}`} prefetch={false} className="block p-4 bg-gray-800/60 rounded-md hover:bg-gray-700/80 transition-colors">
                   <p className="font-semibold text-white">{thread.attributes.title}</p>
                    <p className="text-xs text-gray-400 mt-1">
                     {thread.attributes.commentCount - 1} Replies
@@ -126,7 +121,7 @@ export default function GuildPage() {
               )) : (
                 <p className="text-gray-500 text-center py-4">No adventurers are currently for hire.</p>
               )}
-        </div>
+            </div>
           </div>
 
         </div>

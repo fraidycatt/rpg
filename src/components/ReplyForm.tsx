@@ -3,37 +3,26 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/context/AuthContext'; // <-- THIS IS THE FIX. I have added the missing import.
 
-interface Character { id: number; character_name: string; }
-
+// Define the shape of the props this component expects
 interface ReplyFormProps {
   topicId: string;
-  myCharacters: Character[];
+  myCharacters: any[];
   onReply: () => void;
-  isOoc: boolean; 
+  isOoc: boolean;
 }
 
 export default function ReplyForm({ topicId, myCharacters, onReply, isOoc }: ReplyFormProps) {
-    console.log("--- ReplyForm Rerendered ---"); 
-  const { user, token } = useAuth();
-  const [selectedAuthor, setSelectedAuthor] = useState('');
+  const { user, token } = useAuth(); // This line will now work correctly.
+  
+  const initialAuthor = isOoc ? 'user' : (myCharacters[0]?.id.toString() || '');
+  const [selectedAuthor, setSelectedAuthor] = useState(initialAuthor);
   const [content, setContent] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // This effect correctly sets the default author
-  useEffect(() => {
-    if (isOoc) {
-      setSelectedAuthor('user');
-    } else if (myCharacters && myCharacters.length > 0) {
-      setSelectedAuthor(myCharacters[0].id.toString());
-    }
-  }, [isOoc, myCharacters]);
   
-  // --- THIS IS THE FIX ---
-  // We'll set the placeholder text conditionally right here.
-  const placeholderText = isOoc ? "Write your reply..." : "Write your story...";
+  const placeholderText = isOoc ? "Write your OOC reply..." : "Write your story...";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,8 +47,8 @@ export default function ReplyForm({ topicId, myCharacters, onReply, isOoc }: Rep
       }
       
       setContent('');
-      if (!isOoc) {
-        setSelectedAuthor(myCharacters[0]?.id.toString() || '');
+      if (!isOoc && myCharacters[0]) {
+        setSelectedAuthor(myCharacters[0].id.toString());
       }
       onReply(); 
 
@@ -76,12 +65,13 @@ export default function ReplyForm({ topicId, myCharacters, onReply, isOoc }: Rep
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label htmlFor="author-select" className="block text-sm font-medium text-gray-300">Post as:</label>
+          
           {isOoc ? (
             <p className="text-white font-semibold mt-1 py-2">{user?.username} (You)</p>
           ) : (
             <select id="author-select" value={selectedAuthor} onChange={(e) => setSelectedAuthor(e.target.value)} className="mt-1 block w-full bg-gray-900 border-gray-600 rounded-md px-3 py-2" required>
               <option value="" disabled>-- Select Your Character --</option>
-              {myCharacters.map(char => (
+              {myCharacters.map((char: any) => (
                 <option key={char.id} value={char.id}>{char.character_name}</option>
               ))}
             </select>
@@ -94,7 +84,7 @@ export default function ReplyForm({ topicId, myCharacters, onReply, isOoc }: Rep
             value={content}
             onChange={(e) => setContent(e.target.value)}
             className="w-full h-32 p-2 bg-gray-900 border border-gray-600 rounded-md text-white"
-            placeholder={placeholderText} // --- AND USE IT HERE ---
+            placeholder={placeholderText}
             disabled={isSubmitting}
             required
           />
