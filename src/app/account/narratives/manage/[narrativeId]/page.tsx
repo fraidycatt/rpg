@@ -105,7 +105,7 @@ export default function ManageNarrativePage(props: { params: { narrativeId: stri
       if (!token) return;
       try {
         // We call the correct backend endpoint you already built!
-        const res = await fetch(`http://localhost:3001/api/v1/story/users/me/unassigned-topics`, {
+        const res = await fetch(`http://localhost:3001/api/v1/narratives/available-topics`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (!res.ok) throw new Error('Could not fetch available topics.');

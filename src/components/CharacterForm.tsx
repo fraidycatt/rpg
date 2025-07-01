@@ -41,7 +41,7 @@ export default function CharacterForm({ initialData, characterId, isCreating }: 
         setError(null);
         setIsSubmitting(true);
 
-        const url = isCreating ? 'http://localhost:3001/api/v1/characters' : `http://localhost:3001/api/v1/characters/${characterId}`;
+        const url = isCreating ? 'http://localhost:3001/api/characters' : `http://localhost:3001/api/characters/${characterId}`;
         const method = isCreating ? 'POST' : 'PATCH';
 
         try {
