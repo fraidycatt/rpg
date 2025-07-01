@@ -32,9 +32,14 @@ export default function Header() {
             Friends
           </Link>
         {user && (
+            <>
     <Link href="/account/narratives" className="text-gray-300 hover:text-white transition-colors">
       Narratives
     </Link>
+    <Link href="/account/settings" className="text-gray-300 hover:text-white transition-colors">
+                Settings
+                </Link>
+                </>
   )}
   <Link href="/narratives">Library</Link>
           {/* This is the new, dynamic part */}
