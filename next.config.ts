@@ -1,13 +1,20 @@
-import type { NextConfig } from "next";
+// next.config.ts
+
+import { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  async rewrites() {
-    return [
-      {
-        source: '/api/v1/:path*',
-        destination: 'http://localhost:3001/api/v1/:path*',
-      },
-    ];
+  // Your existing Next.js config options might be here.
+  // We are adding the 'webpack' configuration below.
+
+  webpack(config) {
+    // This rule allows you to import SVGs as React components.
+    config.module.rules.push({
+      test: /\.svg$/i,
+      issuer: /\.[jt]sx?$/,
+      use: ['@svgr/webpack'],
+    });
+
+    return config;
   },
 };
 

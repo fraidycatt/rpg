@@ -57,6 +57,7 @@ export default function LoginPage() {
           </div>
           <div>
             <label htmlFor="password" className="block text-sm font-medium text-gray-300">Password</label>
+
             <input
               id="password"
               type="password"
@@ -65,6 +66,11 @@ export default function LoginPage() {
               required
               className="mt-1 block w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-purple-500 focus:border-purple-500"
             />
+                          <div className="text-sm pt-2">
+                <Link href="/forgot-password" className="font-medium text-purple-400 hover:text-purple-300">
+                  Forgot your password?
+                </Link>
+              </div>
           </div>
           <button
             type="submit"

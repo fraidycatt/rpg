@@ -53,9 +53,12 @@ interface Genre {
     topic_count: string; // The database returns count as a string
 }
 
+// --- NEW: Interface for the narrative data we expect ---
 interface Narrative {
     id: number;
     title: string;
+    summary: string;
+    author_username: string;
 }
 
 interface Activity {
@@ -69,7 +72,6 @@ interface ProfileData {
   character: Character;
   relationships: Relationship[];
   topGenres: Genre[];
-  narratives: Narrative[];
   recentActivity: Activity[];
 }
 
@@ -83,6 +85,7 @@ export default function CharacterDetailPage(props: { params: { id: string } }) {
   const [selectedStatus, setSelectedStatus] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [narratives, setNarratives] = useState<Narrative[]>([]);
 
   // The fetch function now sets all the new data into state
   const fetchPageData = useCallback(async () => {
@@ -113,6 +116,26 @@ export default function CharacterDetailPage(props: { params: { id: string } }) {
     fetchPageData();
   }, [fetchPageData]);
 
+    // --- NEW: A separate useEffect to fetch the narratives for this character ---
+  useEffect(() => {
+    // Only run this fetch if we have successfully loaded the main profile data
+    if (profileData?.character.id) {
+        const fetchNarratives = async () => {
+            try {
+                // We call the new backend endpoint we just created in characters.js
+                const res = await fetch(`http://localhost:3001/api/characters/${profileData.character.id}/narratives`);
+                if (res.ok) {
+                    const narrativesData = await res.json();
+                    setNarratives(narrativesData);
+                }
+            } catch (err) {
+                console.error("Failed to fetch character's narratives", err);
+            }
+        };
+        fetchNarratives();
+    }
+  }, [profileData]); // This effect runs whenever profileData changes
+
   const handleSetRelationship = async (e: React.FormEvent) => {
     // This function from your original file is correct and remains unchanged.
     e.preventDefault();
@@ -138,7 +161,7 @@ export default function CharacterDetailPage(props: { params: { id: string } }) {
   if (error) return <p className="p-24 text-red-500">Error: {error}</p>;
   if (!profileData) return <p className="p-24 text-white">Character not found.</p>;
 
-  const { character, relationships, topGenres, narratives, recentActivity } = profileData;
+  const { character, relationships, topGenres, recentActivity } = profileData;
   const isOwner = loggedInUser?.userId === character.user_id;
 
   return (
@@ -164,6 +187,14 @@ export default function CharacterDetailPage(props: { params: { id: string } }) {
                     <div className="space-y-1">
                         <p><strong>Gender:</strong> {getGenderText(character.gender)}</p>
                         <p><strong>Status:</strong> {getRpStatusText(character.rp_status)}</p>
+                    </div>
+                </div>
+                <div className="bg-gray-800/50 p-4 rounded-lg">
+                    <h3 className="font-semibold text-gray-400 text-sm mb-2 uppercase tracking-wider">Stats</h3>
+                    <div className="space-y-1">
+                        <p><strong>HP:</strong> {character.hp}</p>
+                        <p><strong>MP:</strong> {character.mp}</p>
+                        <p><strong>XP:</strong> {character.xp}</p>
                     </div>
                 </div>
                 {/* --- NEW: Top Genres Card --- */}
@@ -205,26 +236,52 @@ export default function CharacterDetailPage(props: { params: { id: string } }) {
 
         {/* --- NEW: Narratives and Recent Activity Section --- */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+           <div>
+  <h2 className="text-2xl font-semibold mb-4">Narratives ({narratives.length})</h2>
+  
+  {/* We check for narratives before rendering the scrollable container */}
+  {narratives.length > 0 ? (
+    // This new div is our scrollable container
+    <div className="max-h-[340px] overflow-y-auto pr-2 space-y-2">
+      {narratives.map((narrative) => (
+        <Link 
+          key={narrative.id} 
+          href={`/narratives/${narrative.id}`} 
+          className="block bg-gray-800/50 p-4 rounded-lg hover:bg-gray-700/80 transition-colors"
+        >
+          <p className="font-semibold text-white truncate">{narrative.title}</p>
+          <p className="text-xs text-gray-400 mt-1">
+            By {narrative.author_username}
+          </p>
+        </Link>
+      ))}
+    </div>
+  ) : (
+    <p className="text-gray-400">{character.character_name} has not participated in any narratives yet.</p>
+  )}
+</div>
             <div>
-                <h2 className="text-2xl font-semibold mb-4">Narratives</h2>
-                {narratives.length > 0 ? (
-                    <ul className="space-y-2">
-                        {narratives.map(narrative => (
-                            <li key={narrative.id}><Link href={`/story/narratives/${narrative.id}`} className="text-purple-400 hover:underline">{narrative.title}</Link></li>
-                        ))}
-                    </ul>
-                ) : <p className="text-gray-500">This character has not been featured in any narratives yet.</p>}
-            </div>
-            <div>
-                <h2 className="text-2xl font-semibold mb-4">Recent Activity</h2>
-                 {recentActivity.length > 0 ? (
-                    <ul className="space-y-2">
-                        {recentActivity.map(topic => (
-                            <li key={topic.id}><Link href={`/story/topics/${topic.id}`} className="text-purple-400 hover:underline">{topic.attributes.title}</Link></li>
-                        ))}
-                    </ul>
-                ) : <p className="text-gray-500">This character has not been active recently.</p>}
-            </div>
+  <h2 className="text-2xl font-semibold mb-4">Recent Activity</h2>
+  {recentActivity.length > 0 ? (
+    // We use a div with grid for a clean, single-column layout
+    <div className="grid grid-cols-1 gap-3">
+      {/* This is the key fix: .slice(0, 5) creates a new array 
+        with only the first 5 items from recentActivity.
+      */}
+      {recentActivity.slice(0, 5).map(topic => (
+        <Link 
+          key={topic.id} 
+          href={`/story/topics/${topic.id}`} 
+          className="block bg-gray-800/50 p-3 rounded-md hover:bg-gray-700/80 transition-colors"
+        >
+          <p className="text-white truncate">{topic.attributes.title}</p>
+        </Link>
+      ))}
+    </div>
+  ) : (
+    <p className="text-gray-500">This character has not been active recently.</p>
+  )}
+</div>
         </div>
 
         {/* Relationships Section */}

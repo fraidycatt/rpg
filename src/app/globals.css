@@ -26,3 +26,28 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+@layer utilities {
+  .font-features-alt {
+    /* Enable Stylistic Set 3 ('ss03') and standard ligatures ('liga') */
+    /* Replace 'ss03' with whatever set you find your glyphs in! */
+    font-feature-settings: 'dlig' on, 'liga' on;
+  }
+
+  .font-features-alt-2 {
+    font-feature-settings: 'ss01' on, 'liga' on;
+  }
+
+  .font-features-alt-3 {
+    font-feature-settings: 'ss02' on, 'liga' on;
+  }
+
+  .font-features-alt-4 {
+    font-feature-settings: 'ss07' on, 'liga' on;
+  }
+
+  .font-features-normal {
+    /* This class can be used to explicitly turn them off */
+    font-feature-settings: 'dlig' off, 'liga' off;
+  }
+}

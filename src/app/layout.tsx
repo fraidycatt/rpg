@@ -2,8 +2,10 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Header from '@/components/Header';
+import localFont from 'next/font/local';
 import { AuthProvider } from "@/context/AuthContext";
 import ClientOnly from "@/components/ClientOnly";
+import Sidebar from '@/components/Sidebar'
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -14,6 +16,31 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
 });
+
+const mythshire = localFont({
+  src: '../assets/fonts/MythshireRegular.woff', // Path to your font file
+  variable: '--mythshire', // Assign a CSS variable name
+});
+
+const simbiod = localFont({
+  src: '../assets/fonts/Simbiod.ttf', // Path to your font file
+  variable: '--simbiod', // Assign a CSS variable name
+});
+
+const fantasya = localFont({
+  src: '../assets/fonts/Fantasya.otf', // Path to your font file
+  variable: '--mythshire', // Assign a CSS variable name
+});
+
+const wizard = localFont({
+  src: '../assets/fonts/Wizard.otf',
+  variable: '--wizard',
+})
+
+const backover = localFont({
+  src: '../assets/fonts/Backover-Regular.otf',
+  variable: '--backoverregular',
+})
 
 export const metadata: Metadata = {
   title: "Create Next App",
@@ -32,7 +59,7 @@ export default function RootLayout({
       >
         <AuthProvider>
           <ClientOnly>
-        <Header /> {/* <-- 2. ADD THE HEADER COMPONENT HERE */}
+        <Sidebar /> {/* <-- 2. ADD THE HEADER COMPONENT HERE */}
         </ClientOnly>
         {children}
         </AuthProvider>
