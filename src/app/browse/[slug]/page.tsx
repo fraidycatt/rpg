@@ -3,77 +3,121 @@
 import Link from 'next/link';
 import { useState, useEffect, use } from 'react';
 
-// --- UPDATED INTERFACE ---
-// The data structure now correctly reflects the Flarum API response.
-interface Topic {
+// You can reuse the Discussion and formatDateTime helpers from your other pages
+interface Discussion {
   id: string;
   attributes: {
     title: string;
-    comment_count: number;
+    commentCount: number;
+    createdAt: string;
+    lastPostedAt: string;
   };
+  creatorName: string;
+  lastReplyBy: string;
 }
 
-export default function BrowseByBeatPage(props: { params: { slug: string } }) {
+const formatDateTime = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+        year: 'numeric', month: 'short', day: 'numeric',
+        hour: 'numeric', minute: '2-digit', hour12: true
+    });
+};
+
+
+export default function BrowsePage(props: { params: { slug: string } }) {
   const { slug } = use(props.params);
   
-  const [topics, setTopics] = useState<Topic[]>([]);
+  const [topics, setTopics] = useState<Discussion[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // --- NEW: State to manage our filter ---
+  const [showNoReplies, setShowNoReplies] = useState(false);
 
   useEffect(() => {
-    if (!slug) return;
+    if (slug) {
+      const getTopicsByGenre = async () => {
+        setIsLoading(true);
+        setError(null);
+        try {
+          // --- FIX: Build the URL dynamically based on the filter state ---
+          // NOTE: Your backend route for genres is likely in `story.js` under `/topics`
+          let apiUrl = `http://localhost:3001/api/v1/discovery/topics?beat=${slug}`;
+          if (showNoReplies) {
+            apiUrl += '&filter=no_replies';
+          }
 
-    const getTopicsByBeat = async () => {
-      try {
-        const res = await fetch(`http://localhost:3001/api/v1/discovery/topics?beat=${slug}`);
-        if (!res.ok) throw new Error('Failed to fetch topics for this genre');
-        
-        const data = await res.json();
-        setTopics(data);
-      } catch (e: any) {
-        setError(e.message);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
-    getTopicsByBeat();
-  }, [slug]);
+          const res = await fetch(apiUrl);
+          if (!res.ok) throw new Error('Failed to fetch topics for this genre.');
+          const data = await res.json();
+          setTopics(data);
+        } catch (e: any) {
+          setError(e.message);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      getTopicsByGenre();
+    }
+    // The useEffect now re-runs whenever the slug OR the filter state changes
+  }, [slug, showNoReplies]);
 
   if (isLoading) return <p className="p-24 text-white">Loading topics...</p>;
   if (error) return <p className="p-24 text-red-500">Error: {error}</p>;
 
-  const beatTitle = slug ? slug.replace(/-/g, ' ') : '';
-
   return (
     <main className="flex min-h-screen flex-col items-center p-8 sm:p-24 bg-gray-900 text-white">
       <div className="w-full max-w-5xl">
-
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex justify-between items-center mb-4">
           <h1 className="text-3xl font-bold text-purple-400 capitalize">
-            Stories: {beatTitle}
+            Topics in: {slug.replace(/-/g, ' ')}
           </h1>
+          <Link href={`/story/new-topic?tagSlug=${slug}`} className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">
+            + Start New Story
+          </Link>
+        </div>
+
+        {/* --- NEW: The Filter Toggle Button --- */}
+        <div className="flex justify-end mb-4">
+            <button 
+                onClick={() => setShowNoReplies(!showNoReplies)}
+                className={`py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                    showNoReplies 
+                        ? 'bg-purple-600 text-white' 
+                        : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                }`}
+            >
+                {showNoReplies ? 'Show All Topics' : 'Show Topics with No Replies'}
+            </button>
         </div>
 
         <div className="bg-gray-800/50 p-6 rounded-lg shadow-lg border border-gray-700">
           {topics.length > 0 ? (
-            <ul className="space-y-2">
-              {/* --- UPDATED JSX --- */}
-              {/* We now correctly use topic.id for the key and topic.attributes for the data. */}
+            <div className="space-y-4">
               {topics.map((topic) => (
-                <li key={topic.id}>
-                  <Link href={`/story/topics/${topic.id}`} className="block hover:bg-gray-700/50 p-4 rounded-md transition-colors">
-                    <p className="text-lg font-semibold text-white">{topic.attributes.title}</p>
-                    <p className="text-xs text-gray-400">Replies: {topic.attributes.comment_count > 0 ? topic.attributes.comment_count - 1 : 0}</p>
-                  </Link>
-                </li>
+                <Link key={topic.id} href={`/story/topics/${topic.id}`} className="flex justify-between items-start p-4 bg-gray-800/60 rounded-md hover:bg-gray-700/80 transition-colors">
+                  {/* Left Side */}
+                  <div>
+                    <p className="text-lg font-bold text-white">{topic.attributes.title}</p>
+                    <p className="text-xs text-gray-400 mt-1">By: <span className="font-medium text-gray-300">{topic.creatorName}</span></p>
+                    <p className="text-xs text-gray-500">On {formatDateTime(topic.attributes.createdAt)}</p>
+                  </div>
+                  {/* Right Side */}
+                  <div className="text-right flex-shrink-0 ml-4">
+                    <p className="text-lg font-bold text-white">{topic.attributes.commentCount}</p>
+                    <p className="text-xs text-gray-400">Replies</p>
+                    <p className="text-xs text-gray-500 mt-1">By: {topic.lastReplyBy}</p>
+                    <p className="text-xs text-gray-500">On {formatDateTime(topic.attributes.lastPostedAt)}</p>
+                  </div>
+                </Link>
               ))}
-            </ul>
+            </div>
           ) : (
-            <p className="text-gray-400">No topics have been tagged with this genre yet.</p>
+            <p className="text-gray-400 text-center py-8">
+                {showNoReplies ? 'No topics with zero replies found.' : 'No topics found in this genre yet. Why not start one?'}
+            </p>
           )}
         </div>
-        
       </div>
     </main>
   );

@@ -1,25 +1,39 @@
-// src/app/guild/page.tsx
-
 'use client';
 
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 
-// Interfaces remain the same
+// --- FIX #1: Update the Discussion interface to include our new data ---
 interface Discussion {
   id: string;
   attributes: {
     title: string;
     commentCount: number;
     createdAt: string;
+    lastPostedAt: string; // Flarum provides this
   };
+  creatorName: string; // This comes from our enriched backend
+  lastReplyBy: string; // This also comes from our enriched backend
 }
+
 interface Tag {
-    id:string;
+    id: string;
     attributes: {
         name: string;
     }
 }
+
+// A simple helper function to format dates nicely
+const formatDateTime = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true // Use AM/PM
+    });
+};
 
 export default function GuildPage() {
   const [plottingTag, setPlottingTag] = useState<Tag | null>(null);
@@ -73,25 +87,37 @@ export default function GuildPage() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
-
           {/* Column 1: Fireside Plots */}
           <div className="bg-black/20 p-6 rounded-lg border border-gray-700">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-bold text-orange-300">Fireside Tales</h2>
-             {plottingTag && (
-                  <Link href={`/story/new-topic?tagId=${plottingTag.id}&context=plotting`} className="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-3 rounded text-sm">
-                    + New Plot
-                  </Link>
-              )}
+              {plottingTag && ( <Link href={`/story/new-topic?tagId=${plottingTag.id}&context=plotting`} className="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-3 rounded text-sm">+ New Plot</Link> )}
             </div>
             <div className="space-y-4">
               {plottingThreads.length > 0 ? plottingThreads.map(thread => (
-                // --- FIX: Add prefetch={false} ---
-                <Link key={thread.id} href={`/story/topics/${thread.id}`} prefetch={false} className="block p-4 bg-gray-800/60 rounded-md hover:bg-gray-700/80 transition-colors">
-                  <p className="font-semibold text-white">{thread.attributes.title}</p>
-                  <p className="text-xs text-gray-400 mt-1">
-                    {thread.attributes.commentCount - 1} Replies
-                  </p>
+                // --- THIS IS THE FIX ---
+                // The main Link is now a flex container
+                <Link key={thread.id} href={`/story/topics/${thread.id}`} className="flex justify-between items-start p-4 bg-gray-800/60 rounded-md hover:bg-gray-700/80 transition-colors">
+                  {/* Left Side */}
+                  <div>
+                    <p className="text-lg font-bold text-white">{thread.attributes.title}</p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      By: <span className="font-medium text-gray-300">{thread.creatorName}</span> 
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                      on {formatDateTime(thread.attributes.createdAt)}
+                    </p>
+                  </div>
+                  {/* Right Side */}
+                  <div className="text-right flex-shrink-0 ml-4">
+                    <p className="text-md font-bold text-white">{thread.attributes.commentCount} Replies</p>
+                    
+                    <p className="text-xs text-gray-500 mt-1">
+                      By: {thread.lastReplyBy} </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                      on {formatDateTime(thread.attributes.lastPostedAt)}
+                    </p>
+                  </div>
                 </Link>
               )) : (
                 <p className="text-gray-500 text-center py-4">No new plots are being discussed.</p>
@@ -103,20 +129,32 @@ export default function GuildPage() {
           <div className="bg-black/20 p-6 rounded-lg border border-gray-700">
             <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-blue-300">Swords for Coin</h2>
-            {recruitingTag && (
-                    <Link href={`/story/new-topic?tagId=${recruitingTag.id}&context=recruiting`} className="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-3 rounded text-sm">
-                        + Post Listing
-                    </Link>
-                )}
+                {recruitingTag && ( <Link href={`/story/new-topic?tagId=${recruitingTag.id}&context=recruiting`} className="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-3 rounded text-sm">+ Post Listing</Link> )}
             </div>
             <div className="space-y-4">
               {recruitingThreads.length > 0 ? recruitingThreads.map(thread => (
-                // --- FIX: Add prefetch={false} ---
-                <Link key={thread.id} href={`/story/topics/${thread.id}`} prefetch={false} className="block p-4 bg-gray-800/60 rounded-md hover:bg-gray-700/80 transition-colors">
-                  <p className="font-semibold text-white">{thread.attributes.title}</p>
-                   <p className="text-xs text-gray-400 mt-1">
-                    {thread.attributes.commentCount - 1} Replies
-                  </p>
+                // --- AND THE FIX IS APPLIED HERE AS WELL ---
+                <Link key={thread.id} href={`/story/topics/${thread.id}`} className="flex justify-between items-start p-4 bg-gray-800/60 rounded-md hover:bg-gray-700/80 transition-colors">
+                  {/* Left Side */}
+                  <div>
+                    <p className="text-lg font-bold text-white">{thread.attributes.title}</p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      By: <span className="font-medium text-gray-300">{thread.creatorName}</span> 
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                      on {formatDateTime(thread.attributes.createdAt)}
+                    </p>
+                  </div>
+                  {/* Right Side */}
+                  <div className="text-right flex-shrink-0 ml-4">
+                    <p className="text-md font-bold text-white">{thread.attributes.commentCount} Replies</p>
+                    
+                    <p className="text-xs text-gray-500 mt-1">
+                      By: {thread.lastReplyBy} </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                      on {formatDateTime(thread.attributes.lastPostedAt)}
+                    </p>
+                  </div>
                 </Link>
               )) : (
                 <p className="text-gray-500 text-center py-4">No adventurers are currently for hire.</p>

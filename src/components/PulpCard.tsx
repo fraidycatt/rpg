@@ -31,7 +31,7 @@ export default function PulpCard({
   
   const aspectRatio = 382 / 332;
   const height = width * aspectRatio;
-  const svgPathData = "M171.849487,0.62008667 C61.106486,0.62008667 4.25030518,22.9333954 1.28094482,67.5600128 L1.28094482,339.582947 L38.0202637,339.582947 L38.0202637,380.88269 L171.849487,380.88269 L288.591064,380.88269 L288.591064,339.582947 L330.2677,339.582947 L330.2677,67.5600128 C335.39856,22.9333954 282.592489,0.62008667 171.849487,0.62008667 Z";
+  const svgPathData = "M171.849487,0.62008667 C61.106486,0.62008667 4.25030518,14.9607035 1.28094482,43.6419373 L1.28094482,339.582947 L31.28,339.582947 L31.28,368.09491 L171.849487,368.09491 L300.27,368.09491 L300.27,339.582947 L330.2677,339.582947 L330.2677,43.6419373 C335.39856,14.9607035 282.592489,0.62008667 171.849487,0.62008667 Z";
   const strokePadding = 40; 
   const uniquePatternId = useMemo(() => `pattern-${Math.random().toString(36).substr(2, 9)}`, []);
 
@@ -64,20 +64,20 @@ export default function PulpCard({
         
        {/* Default State Borders */}
         <g className="opacity-100 group-hover:opacity-0 transition-opacity duration-500">
-            <path d={svgPathData} stroke="var(--outer-border-color)" strokeWidth="50" fill="none" />
-            <path d={svgPathData} stroke="var(--inner-border-color)" strokeWidth="35" fill="none" />
+            <path d={svgPathData} stroke="var(--outer-border-color)" strokeWidth="40" fill="none" />
+            <path d={svgPathData} stroke="var(--inner-border-color)" strokeWidth="25" fill="none" />
         </g>
 
         {/* Hover State Borders (Invisible by default) */}
         <g className="opacity-0 group-hover:opacity-100 transition-opacity duration-500">
-             <path d={svgPathData} stroke="var(--hover-outer-border-color)" strokeWidth="50" fill="none" />
-             <path d={svgPathData} stroke="var(--hover-inner-border-color)" strokeWidth="35" fill="none" />
+             <path d={svgPathData} stroke="var(--hover-outer-border-color)" strokeWidth="40" fill="none" />
+             <path d={svgPathData} stroke="var(--hover-inner-border-color)" strokeWidth="25" fill="none" />
         </g>
         
         <path d={svgPathData} fill={`url(#${uniquePatternId})`} className="grayscale group-hover:grayscale-0 transition-all duration-500" />
         
         <text
-          x="40%" y="80%"
+          x="40%" y="78%"
           dominantBaseline="text-bottom" textAnchor="middle"
           className="text-6xl font-bold text-stone-100 fill-current drop-shadow-md opacity-0 group-hover:opacity-100 scale-90 group-hover:scale-100 transition-all duration-300 ease-in-out select-none"
           style={{ fontFamily: 'Mythshire' }}

@@ -54,7 +54,7 @@ export default function SvgBorderSamplePage() {
           href="/directory"
           imageUrl="/pulpart9.png"
           title="Our World"
-          subtitle="Our World operates on the same SRD as many other ttrpgs out there, with one crucial difference-- you contribute to the lore and world directly. As you write, your words become legend."
+          subtitle="Our World operates by the same class rules and dice rolls as many other TTRPGs, with one crucial difference: you contribute to the lore and world of these elements directly. As you write, your words become legend."
           width={400}
           hoverInnerBorderColor='#CD5C5C'
           hoverOuterBorderColor='#800000'
